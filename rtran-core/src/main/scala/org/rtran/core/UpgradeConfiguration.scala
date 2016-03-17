@@ -1,0 +1,63 @@
+/*
+ * Copyright (c) 2016 eBay Software Foundation.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.rtran.core
+
+import com.fasterxml.jackson.databind.JsonNode
+import com.typesafe.scalalogging.LazyLogging
+import org.json4s.JsonAST.JValue
+import org.json4s.jackson.JsonMethods._
+import org.rtran.api.{IModel, IRule, IRuleConfigFactory}
+
+import scala.util.{Failure, Success, Try}
+
+
+trait RuleProducer {
+  val ruleInstances: List[_ <: IRule[_ <: IModel]]
+}
+
+trait UpgradeConfiguration extends RuleProducer {
+  val ruleConfigs: List[JsonRuleConfiguration]
+}
+
+case class JsonRuleConfiguration(name: String, config: Option[JValue] = None)
+
+case class JsonUpgradeConfiguration(ruleConfigs: List[JsonRuleConfiguration])
+  extends UpgradeConfiguration with JsonRuleProducer
+
+trait JsonRuleProducer extends RuleProducer with LazyLogging {self: UpgradeConfiguration =>
+
+  lazy val ruleInstances = ruleConfigs map {
+    case JsonRuleConfiguration(name, configOpt) =>
+      logger.info("Creating instance for {} with config {}", name, configOpt)
+      RuleRegistry.findRuleDefinition(name) flatMap { case (ruleClass, configFactoryOpt) =>
+        val configFactory = (configFactoryOpt getOrElse DefaultJsonRuleConfigFactory)
+          .asInstanceOf[IRuleConfigFactory[JsonNode]]
+        configOpt map { config =>
+          Try(JsonConfigurableRuleFactory.createRuleWithConfig(ruleClass, configFactory, asJsonNode(config)))
+        } getOrElse Try(JsonConfigurableRuleFactory.createRule(ruleClass)) match {
+          case Success(instance) =>
+            Some(instance)
+          case Failure(e) =>
+            logger.warn(e.getMessage)
+            None
+        }
+      }
+  } collect {
+    case Some(instance) => instance
+  }
+
+}
