@@ -15,6 +15,7 @@ before_install:
  - >
     if [ "x${ENCRYPTION_PASSWORD}" != "x" ]; then
         openssl aes-256-cbc -pass pass:${ENCRYPTION_PASSWORD} -in secring.gpg.enc -out secring.gpg -d
+        openssl aes-256-cbc -pass pass:${ENCRYPTION_PASSWORD} -in pubring.gpg.enc -out pubring.gpg -d
         openssl aes-256-cbc -pass pass:${ENCRYPTION_PASSWORD} -in gpg.sbt.enc -out gpg.sbt -d
     fi
 

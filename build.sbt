@@ -41,6 +41,10 @@ publishTo in ThisBuild := {
     Some("releases" at nexus + "service/local/staging/deploy/maven2")
 }
 
+pgpSecretRing := file("secring.gpg")
+
+pgpPublicRing := file("pubring.gpg")
+
 publishMavenStyle in ThisBuild := true
 
 publishArtifact in Test := false
