@@ -1,6 +1,7 @@
 # RTran: Rule Based Project Transformer
 
 [![License](http://img.shields.io/:license-Apache%202-red.svg)](LICENSE.txt)
+[![Codacy Badge](https://api.codacy.com/project/badge/grade/90d314276ca74891bda1119f3d10ceb9)](https://www.codacy.com/app/zcx-wang/RTran)
 
 The library executes a sequence of rules on a physical project (directories and files on disk). 
 The idea is to support continuously upgrade projects to catch up the latest framework. 
