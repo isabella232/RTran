@@ -1,6 +1,6 @@
 scalaVersion in ThisBuild := "2.11.8"
 
-organization in ThisBuild := "org.rtran"
+organization in ThisBuild := "com.ebay.rtran"
 
 name := "rtran"
 
@@ -40,6 +40,10 @@ publishTo in ThisBuild := {
   else
     Some("releases" at nexus + "service/local/staging/deploy/maven2")
 }
+
+pgpSecretRing := file("secring.gpg")
+
+pgpPublicRing := file("pubring.gpg")
 
 publishMavenStyle in ThisBuild := true
 

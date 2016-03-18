@@ -1,6 +1,8 @@
 # RTran: Rule Based Project Transformer
 
-[![License](http://img.shields.io/:license-Apache%202-red.svg)](LICENSE.txt)
+[![License](http://img.shields.io/:license-Apache%202-red.svg)](LICENSE)
+[![Build Status](https://travis-ci.org/eBay/RTran.svg?branch=master)](https://travis-ci.org/eBay/RTran)
+[![Codacy Badge](https://api.codacy.com/project/badge/grade/90d314276ca74891bda1119f3d10ceb9)](https://www.codacy.com/app/zcx-wang/RTran)
 
 The library executes a sequence of rules on a physical project (directories and files on disk). 
 The idea is to support continuously upgrade projects to catch up the latest framework. 
@@ -9,15 +11,15 @@ Therefore, for structured project like Maven, a lot of rules can be reused once 
 
 ## Terminology
 
-___Project context___: reflects the project to in-memory data (implements `org.rtran.api.IProjectCtx`) 
+___Project context___: reflects the project to in-memory data (implements `com.ebay.rtran.api.IProjectCtx`) 
 
-___Model___: a specific data type that extracted from project context (implements `org.rtran.api.IModel`)
+___Model___: a specific data type that extracted from project context (implements `com.ebay.rtran.api.IModel`)
 
-___Model provider___: the factory that produce a Model instance from project context (implements `org.rtran.api.IModelProvider`)
+___Model provider___: the factory that produce a Model instance from project context (implements `com.ebay.rtran.api.IModelProvider`)
 
-___Rule config___: an implementation of `org.rtran.api.IRuleConfig` which usually will be un/marshallable
+___Rule config___: an implementation of `com.ebay.rtran.api.IRuleConfig` which usually will be un/marshallable
 
-___Rule definition___: an implementation of `org.rtran.api.IRule` which may take 0 or 1 rule config parameter
+___Rule definition___: an implementation of `com.ebay.rtran.api.IRule` which may take 0 or 1 rule config parameter
 
 ___Rule instance___: basic unit executed by the engine which is created from rule definition with certain rule config
                 
@@ -34,24 +36,24 @@ Here is the example (We use HOCON as the syntax of the .conf file):
 ```
    // list of IModelProvider implementations
    upgrader.model-providers = [
-     org.rtran.generic.AllFilesModelProvider
-     org.rtran.xml.XMLFilesModelProvider
+     com.ebay.rtran.generic.AllFilesModelProvider
+     com.ebay.rtran.xml.XMLFilesModelProvider
    ]
    
    // rule definitions keyed by unique rule name
    upgrader.rules {
      "ModifyXMLFilesRule" = {
        // implementation of IRule
-       class = org.rtran.xml.ModifyXMLFilesRule
+       class = com.ebay.rtran.xml.ModifyXMLFilesRule
        // the factory class that create the IRuleConfig instance with certain raw data
        // if not specified, the IRuleConfig implementation will be a scala case class and raw data is a JsonNode
-       config-factory = org.rtran.xml.ModifyXMLFilesRuleConfigFactory
+       config-factory = com.ebay.rtran.xml.ModifyXMLFilesRuleConfigFactory
      }
      "MoveFilesRule" = {
-       class = org.rtran.generic.MoveFilesRule
+       class = com.ebay.rtran.generic.MoveFilesRule
      }
      "ModifyFilesRule" = {
-       class = org.rtran.generic.ModifyFilesRule
+       class = com.ebay.rtran.generic.ModifyFilesRule
      }
    }
 ```
@@ -110,10 +112,10 @@ A new model will be created after apply the rule instance to the original model.
 
 | Name | Description |
 |------|-------------|
-|org.rtran:upgrader-api|the interfaces for the modules to extend|
-|org.rtran:upgrader-core|implementation of the rule engine and registry|
-|org.rtran:upgrader-generic|provides some generic rules and models (i.e. move and modify files, modify xml files)|
-|org.rtran:upgrader-maven|provides rules and models for maven project (i.e. dependency related rules and resolve the POM hierarchy|
+|com.ebay.rtran:upgrader-api|the interfaces for the modules to extend|
+|com.ebay.rtran:upgrader-core|implementation of the rule engine and registry|
+|com.ebay.rtran:upgrader-generic|provides some generic rules and models (i.e. move and modify files, modify xml files)|
+|com.ebay.rtran:upgrader-maven|provides rules and models for maven project (i.e. dependency related rules and resolve the POM hierarchy|
 
 ## Usage
 
@@ -132,7 +134,7 @@ Release: `https://oss.sonatype.org/service/local/staging/deploy/maven2`
 ___Dependency___
 ```xml
  <dependency>
-    <groupId>org.rtran</groupId>
+    <groupId>com.ebay.rtran</groupId>
     <artifactId>rtran-core</artifactId>
     <version>0.7.0-SNAPSHOT</version>
  </dependency>
@@ -149,7 +151,7 @@ ___Sample code___
 ### Plugin rules for Maven project
 ```xml
  <dependency>
-    <groupId>org.rtran</groupId>
+    <groupId>com.ebay.rtran</groupId>
     <artifactId>rtran-maven</artifactId>
     <version>0.7.0-SNAPSHOT</version>
  </dependency>
@@ -158,7 +160,7 @@ ___Sample code___
 ### Implement your own rules
 ```xml
  <dependency>
-    <groupId>org.rtran</groupId>
+    <groupId>com.ebay.rtran</groupId>
     <artifactId>rtran-api</artifactId>
     <version>0.7.0-SNAPSHOT</version>
  </dependency>
@@ -189,5 +191,5 @@ Since this implementation is tied with log implementation, now it only supports 
 
 | Name | Description |
 |------|-------------|
-|org.rtran:upgrader-report-api|the interface for customized subscribers|
-|org.rtran:upgrader-report|contains the log appender and report api to generate report around a function|
+|com.ebay.rtran:upgrader-report-api|the interface for customized subscribers|
+|com.ebay.rtran:upgrader-report|contains the log appender and report api to generate report around a function|

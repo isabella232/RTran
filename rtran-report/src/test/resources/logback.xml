@@ -27,5 +27,5 @@
     <root level="ERROR">
         <appender-ref ref="STDOUT" />
     </root>
-    <logger name="org.rtran.report" level="DEBUG"/>
+    <logger name="com.ebay.rtran.report" level="DEBUG"/>
 </configuration>
