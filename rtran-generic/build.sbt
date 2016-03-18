@@ -13,3 +13,7 @@ libraryDependencies ++= Seq(
 )
 
 coverageEnabled := true
+
+makePomConfiguration ~= { config =>
+  config.copy(process = TransformFilterBadDependencies)
+}

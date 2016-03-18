@@ -1,6 +1,6 @@
 import Versions._
 
-val aetherVersion = "1.0.2.v20150114"
+val aetherVersion = "1.1.0"
 
 libraryDependencies ++= Seq(
   "org.eclipse.aether" % "aether-api" % aetherVersion,
@@ -27,3 +27,7 @@ libraryDependencies ++= Seq(
 cleanFiles += baseDirectory.value / "maven-repo"
 
 coverageEnabled := true
+
+makePomConfiguration ~= { config =>
+  config.copy(process = TransformFilterBadDependencies)
+}

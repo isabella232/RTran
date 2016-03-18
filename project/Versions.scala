@@ -14,13 +14,41 @@
  * limitations under the License.
  */
 
+import scala.xml.{Node, Elem}
+import scala.xml.transform.{RuleTransformer, RewriteRule}
+
 object Versions {
 
-  val slf4jVersion = "1.7.12"
-  val logbackVersion = "1.1.3"
+  val slf4jVersion = "1.7.19"
+  val logbackVersion = "1.1.6"
   val scalatestVersion = "2.2.5"
   val typesafeConfigVersion = "1.3.0"
   val apacheCommonsIOVersion = "2.4"
   val scalaLoggingVersion = "3.1.0"
   val json4sVersion = "3.2.11"
 }
+
+object FilterBadDependency extends RewriteRule {
+
+  override def transform(n: Node): Seq[Node] = n match {
+    /**
+      * When we find the dependencies node we want to rewrite it removing any of
+      * the scoverage dependencies.
+      */
+    case dependencies @ Elem(_, "dependencies", _, _, _*) =>
+      <dependencies>
+        {
+          dependencies.child filter { dep =>
+            (dep \ "groupId").text != "org.scoverage"
+          }
+        }
+      </dependencies>
+    /**
+      * Otherwise we just skip over the node and do nothing
+      */
+    case other => other
+  }
+
+}
+
+object TransformFilterBadDependencies extends RuleTransformer(FilterBadDependency)
