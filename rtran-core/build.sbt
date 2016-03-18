@@ -9,8 +9,6 @@ libraryDependencies ++= Seq(
   "ch.qos.logback" % "logback-classic" % logbackVersion % "test"
 )
 
-coverageEnabled := true
-
 makePomConfiguration ~= { config =>
   config.copy(process = TransformFilterBadDependencies)
 }
