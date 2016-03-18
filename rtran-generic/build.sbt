@@ -12,8 +12,6 @@ libraryDependencies ++= Seq(
   "org.scalatest" %% "scalatest" % scalatestVersion % "test"
 )
 
-coverageEnabled := true
-
 makePomConfiguration ~= { config =>
   config.copy(process = TransformFilterBadDependencies)
 }

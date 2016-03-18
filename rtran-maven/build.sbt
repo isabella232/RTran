@@ -26,8 +26,6 @@ libraryDependencies ++= Seq(
 
 cleanFiles += baseDirectory.value / "maven-repo"
 
-coverageEnabled := true
-
 makePomConfiguration ~= { config =>
   config.copy(process = TransformFilterBadDependencies)
 }

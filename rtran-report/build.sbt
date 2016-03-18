@@ -7,8 +7,6 @@ libraryDependencies ++= Seq(
   "com.typesafe.scala-logging" %% "scala-logging" % scalaLoggingVersion % "test"
 )
 
-coverageEnabled := true
-
 makePomConfiguration ~= { config =>
   config.copy(process = TransformFilterBadDependencies)
 }
