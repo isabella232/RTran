@@ -1,6 +1,6 @@
 scalaVersion in ThisBuild := "2.11.8"
 
-organization in ThisBuild := "org.rtran"
+organization in ThisBuild := "com.ebay.rtran"
 
 name := "rtran"
 

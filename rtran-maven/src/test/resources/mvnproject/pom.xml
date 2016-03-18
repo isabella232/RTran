@@ -23,7 +23,7 @@
         <artifactId>spring-parent</artifactId>
         <version>3.1.4.RELEASE</version>
     </parent>
-    <groupId>org.rtran</groupId>
+    <groupId>com.ebay.rtran</groupId>
     <artifactId>my-parent</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <packaging>pom</packaging>
@@ -75,7 +75,7 @@
                 </plugin>
                 <plugin>
                     <artifactId>some-maven-plugin</artifactId>
-                    <groupId>org.rtran.old</groupId>
+                    <groupId>com.ebay.rtran.old</groupId>
                     <version>1.0.0</version>
                 </plugin>
             </plugins>
@@ -87,7 +87,7 @@
             </plugin>
             <plugin>
                 <artifactId>some-maven-plugin</artifactId>
-                <groupId>org.rtran.old</groupId>
+                <groupId>com.ebay.rtran.old</groupId>
             </plugin>
         </plugins>
     </build>
