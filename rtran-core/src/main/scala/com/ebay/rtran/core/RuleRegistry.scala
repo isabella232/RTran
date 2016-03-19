@@ -27,7 +27,7 @@ import scala.util.{Failure, Success, Try}
 
 object RuleRegistry extends LazyLogging {
 
-  val PATH_TO_RULES = "upgrader.rules"
+  val PATH_TO_RULES = "rtran.rules"
 
   private[this] lazy val ruleDefinitions = loadRuleDefinitions(UpgraderMeta.configs)
 
