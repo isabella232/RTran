@@ -1,5 +1,12 @@
 language: scala
 
+# These directories are cached to S3 at the end of the build
+cache:
+    directories:
+        - $HOME/.ivy2/cache
+        - $HOME/.sbt/boot/
+
+
 scala:
     - 2.11.7
 jdk:
@@ -20,10 +27,13 @@ before_install:
     fi
 
 script:
-    - sbt -jvm-opts jvmopts clean coverage test
+    - sbt -jvm-opts jvmopts -J-XX:ReservedCodeCacheSize=256M clean coverage test
     - sbt coverageReport
     - sbt coverageAggregate
     - sbt codacyCoverage
+    # Tricks to avoid unnecessary cache updates
+    - find $HOME/.sbt -name "*.lock" | xargs rm
+    - find $HOME/.ivy2 -name "ivydata-*.properties" | xargs rm
 
 after_success:
     - >
