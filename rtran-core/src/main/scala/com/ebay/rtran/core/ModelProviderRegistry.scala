@@ -26,7 +26,7 @@ import scala.collection.JavaConversions._
 
 object ModelProviderRegistry extends LazyLogging {
 
-  val PATH_TO_MODEL_PROVIDER = "upgrader.model-providers"
+  val PATH_TO_MODEL_PROVIDER = "rtran.model-providers"
 
   private[this] var modelProviders = loadModelProviders(UpgraderMeta.configs)
 

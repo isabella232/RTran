@@ -20,5 +20,4 @@ import com.ebay.rtran.api.IModel;
 
 public class MockModel implements IModel {
 
-  public MockModel() {}
 }

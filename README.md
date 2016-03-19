@@ -36,13 +36,13 @@ Here is the example (We use HOCON as the syntax of the .conf file):
 
 ```
    // list of IModelProvider implementations
-   upgrader.model-providers = [
+   rtran.model-providers = [
      com.ebay.rtran.generic.AllFilesModelProvider
      com.ebay.rtran.xml.XMLFilesModelProvider
    ]
    
    // rule definitions keyed by unique rule name
-   upgrader.rules {
+   rtran.rules {
      "ModifyXMLFilesRule" = {
        // implementation of IRule
        class = com.ebay.rtran.xml.ModifyXMLFilesRule
