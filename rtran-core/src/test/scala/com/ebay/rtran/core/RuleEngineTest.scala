@@ -24,6 +24,7 @@ import com.ebay.rtran.core.mock.{MyModifyFileRule, MyProject, MyRenameFileRule, 
 import org.scalatest.{BeforeAndAfterEach, FlatSpecLike, Matchers}
 
 import scala.io.Source
+import scala.collection.JavaConversions._
 
 
 class RuleEngineTest extends FlatSpecLike with Matchers with BeforeAndAfterEach {
