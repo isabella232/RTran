@@ -20,6 +20,7 @@ import com.typesafe.scalalogging.LazyLogging
 import com.ebay.rtran.api.{IModel, IProjectCtx, IRule}
 
 import scala.util.{Failure, Success, Try}
+import scala.collection.JavaConversions._
 
 
 class RuleEngine extends LazyLogging {
@@ -28,7 +29,7 @@ class RuleEngine extends LazyLogging {
     execute(projectCtx, configuration.ruleInstances)
   }
 
-  def execute[P <: IProjectCtx](projectCtx: P, rules: List[_ <: IRule[_ <: IModel]]): Unit = {
+  def execute[P <: IProjectCtx](projectCtx: P, rules: java.util.List[_ <: IRule[_ <: IModel]]): Unit = {
     rules foreach { rule =>
       logger.info("Executing rule {} ...", rule.id)
       executeRule(rule.asInstanceOf[IRule[IModel]], projectCtx)
