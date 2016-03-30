@@ -3,6 +3,7 @@
 [![License](http://img.shields.io/:license-Apache%202-red.svg)](LICENSE)
 [![Build Status](https://travis-ci.org/eBay/RTran.svg?branch=master)](https://travis-ci.org/eBay/RTran)
 [![Codacy Badge](https://api.codacy.com/project/badge/grade/90d314276ca74891bda1119f3d10ceb9)](https://www.codacy.com/app/zcx-wang/RTran)
+[![Codacy Badge](https://api.codacy.com/project/badge/coverage/4b22f9e0cd044db5be868243bf37a41d)](https://www.codacy.com/app/zcx-wang/RTran)
 
 The library executes a sequence of rules on a physical project (directories and files on disk). 
 The idea is to support continuously upgrade projects to catch up the latest framework. 
@@ -136,7 +137,7 @@ ___Dependency___
  <dependency>
     <groupId>com.ebay.rtran</groupId>
     <artifactId>rtran-core</artifactId>
-    <version>0.7.0-SNAPSHOT</version>
+    <version>0.8.0-SNAPSHOT</version>
  </dependency>
 ```
 
@@ -153,7 +154,7 @@ ___Sample code___
  <dependency>
     <groupId>com.ebay.rtran</groupId>
     <artifactId>rtran-maven</artifactId>
-    <version>0.7.0-SNAPSHOT</version>
+    <version>0.8.0-SNAPSHOT</version>
  </dependency>
 ```
 
@@ -162,7 +163,7 @@ ___Sample code___
  <dependency>
     <groupId>com.ebay.rtran</groupId>
     <artifactId>rtran-api</artifactId>
-    <version>0.7.0-SNAPSHOT</version>
+    <version>0.8.0-SNAPSHOT</version>
  </dependency>
 ```
 

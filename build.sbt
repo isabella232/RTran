@@ -6,6 +6,8 @@ name := "rtran"
 
 publishArtifact := false
 
+cleanFiles += baseDirectory.value / "maven-repo"
+
 parallelExecution in ThisBuild := false
 
 fork in ThisBuild := true

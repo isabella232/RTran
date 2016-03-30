@@ -16,10 +16,9 @@
 
 package com.ebay.rtran.maven.util
 
-import org.apache.maven.model.{Dependency, Exclusion, Model, Plugin}
-import org.eclipse.aether.artifact.{Artifact, DefaultArtifact}
-import org.eclipse.aether.util.version.GenericVersionScheme
 import com.ebay.rtran.maven.SimpleExclusion
+import org.apache.maven.model.{Dependency, Exclusion, Model, Plugin}
+import org.eclipse.aether.util.version.GenericVersionScheme
 
 import scala.collection.JavaConversions._
 import scala.language.implicitConversions
@@ -133,10 +132,6 @@ object MavenModelUtil {
     classifier = Option(dep.getClassifier),
     `type` = Option(dep.getType),
     scope = Option(dep.getScope)
-  )
-
-  implicit def mavenDependency2Artifact(dep: Dependency): Artifact = new DefaultArtifact(
-    s"${dep.getGroupId}:${dep.getArtifactId}::${dep.getVersion}"
   )
 
   implicit def simpleExclusion2MavenExclusion(exclusion: SimpleExclusion): Exclusion = {

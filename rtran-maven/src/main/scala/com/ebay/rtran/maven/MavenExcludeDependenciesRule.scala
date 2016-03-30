@@ -39,12 +39,12 @@ class MavenExcludeDependenciesRule(ruleConfig: MavenExcludeDependenciesRuleConfi
     var changes = Set.empty[File]
     val modules = model.modules map { module =>
       implicit val props = module.properties
-      val managedDependencies = module.managedDependencies.values.map(mavenDependency2AetherDependency).toList
+      val managedDependencies = module.managedDependencies.values.toList
       // exclude from dependencyManagement
       Option(module.pomModel.getDependencyManagement).map(_.getDependencies.toList) getOrElse List.empty foreach {md =>
+        val transitives = MavenUtil.getTransitiveDependencies(resolve(md), managedDependencies)
         val exclusions = ruleConfig.exclusions filter { exclusion =>
-          getTransitiveDependencies(resolve(md), managedDependencies)
-            .exists(d => d.getGroupId == exclusion.groupId && d.getArtifactId == exclusion.artifactId)
+          transitives.exists(d => d.getGroupId == exclusion.groupId && d.getArtifactId == exclusion.artifactId)
         }
         if (exclusions.nonEmpty) {
           changes += module.pomFile
@@ -54,9 +54,9 @@ class MavenExcludeDependenciesRule(ruleConfig: MavenExcludeDependenciesRuleConfi
       }
       // exclude from the dependencies that has explicit version
       module.pomModel.getDependencies.filter(dep => Option(dep.getVersion).nonEmpty) foreach {dep =>
+        val transitives = getTransitiveDependencies(resolve(dep), managedDependencies)
         val exclusions = ruleConfig.exclusions filter { exclusion =>
-          getTransitiveDependencies(resolve(dep), managedDependencies)
-            .exists(d => d.getGroupId == exclusion.groupId && d.getArtifactId == exclusion.artifactId)
+          transitives.exists(d => d.getGroupId == exclusion.groupId && d.getArtifactId == exclusion.artifactId)
         }
         if (exclusions.nonEmpty) {
           changes += module.pomFile
@@ -68,19 +68,6 @@ class MavenExcludeDependenciesRule(ruleConfig: MavenExcludeDependenciesRuleConfi
     }
     logger.info("Rule {} was applied to {} files", id, changes.size.toString)
     model.copy(modules = modules)
-  }
-
-  private def getTransitiveDependencies(dependency: Dependency, managedDependencies: List[aether.Dependency]) = Try {
-    MavenUtil.allDependencies(
-      dependency,
-      managedDependencies,
-      dependencyFilter = new ExclusionsDependencyFilter(
-        dependency.getExclusions.map(e => s"${e.getGroupId}:${e.getArtifactId}")
-      )
-    )
-  } match {
-    case Success(l) => l
-    case Failure(e) => new java.util.ArrayList[Artifact]
   }
 
   override def isEligibleFor(projectCtx: IProjectCtx) = projectCtx.isInstanceOf[MavenProjectCtx]

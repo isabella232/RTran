@@ -44,6 +44,21 @@ class MavenUtilTest extends FlatSpecLike with Matchers {
     dependencies exists (_.getArtifactId == "config") should be (true)
   }
 
+  "MavenUtil" should "be able to get all dependencies for an maven dependency w/o cache" in {
+    val dependency = new maven.Dependency()
+    dependency.setGroupId("com.typesafe.akka")
+    dependency.setArtifactId("akka-remote_2.11")
+    dependency.setType("jar")
+    dependency.setVersion("2.3.12")
+    val dependencies = MavenUtil.getTransitiveDependencies(dependency, enableCache = true)
+    dependencies.size should not be 0
+    // com.typesafe:config:jar:1.2.1 is transitive dependency for com.typesafe.akka:akka-actor_2.11:jar:2.3.12
+    dependencies exists (_.getArtifactId == "config") should be (true)
+
+    val cachedDependencies = MavenUtil.getTransitiveDependencies(dependency, enableCache = true)
+    cachedDependencies.toString should be (dependencies.toString)
+  }
+
   "MavenUtil" should "be able to get all release versions" in {
     val versions = MavenUtil.findAvailableVersions("org.springframework", "spring-parent")
     versions.size should not be 0
