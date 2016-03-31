@@ -101,14 +101,19 @@ object MavenUtil {
       cacheDir.mkdirs()
       val cacheFile = new File(cacheDir, dependency.toString)
       Try {
-        val cachedResults: util.List[Artifact] = Source.fromFile(cacheFile).getLines().map(new DefaultArtifact(_)).toList
-        cachedResults
+        this.synchronized {
+          val cachedResults: util.List[Artifact] =
+            Source.fromFile(cacheFile).getLines().map(new DefaultArtifact(_)).toList
+          cachedResults
+        }
       } getOrElse {
         val results = Try {
           allDependencies(dependency, managedDependencies.map(mavenDependency2AetherDependency).toList, dependencyFilter)
         } getOrElse util.Collections.emptyList[Artifact]
 
-        if (results.nonEmpty) FileUtils.writeLines(cacheFile, results)
+        if (results.nonEmpty) this.synchronized {
+          FileUtils.writeLines(cacheFile, results)
+        }
         results
       }
     } else {
