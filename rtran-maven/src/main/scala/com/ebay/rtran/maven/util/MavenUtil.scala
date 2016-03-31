@@ -20,6 +20,7 @@ import java.io.File
 import java.util
 
 import com.typesafe.config.ConfigFactory
+import org.apache.commons.io.FileUtils
 import org.apache.maven.repository.internal._
 import org.apache.maven.{model => maven}
 import org.eclipse.aether.artifact.{Artifact, ArtifactProperties, DefaultArtifact, DefaultArtifactType}
@@ -33,10 +34,13 @@ import org.eclipse.aether.spi.connector.RepositoryConnectorFactory
 import org.eclipse.aether.spi.connector.transport.TransporterFactory
 import org.eclipse.aether.transport.file.FileTransporterFactory
 import org.eclipse.aether.transport.http.HttpTransporterFactory
+import org.eclipse.aether.util.filter.ExclusionsDependencyFilter
 import org.eclipse.aether.{RepositorySystem, RepositorySystemSession, repository => aether}
 
 import scala.collection.JavaConversions._
+import scala.io.Source
 import scala.language.{implicitConversions, postfixOps}
+import scala.util.Try
 
 object MavenUtil {
   private lazy val config = ConfigFactory.load(getClass.getClassLoader).getConfig("maven.util")
@@ -86,6 +90,39 @@ object MavenUtil {
     session
   }
 
+  def getTransitiveDependencies(dependency: maven.Dependency,
+                                managedDependencies: util.List[maven.Dependency] = List.empty[maven.Dependency],
+                                enableCache: Boolean = true): util.List[Artifact] = {
+    val dependencyFilter = new ExclusionsDependencyFilter(
+      dependency.getExclusions.map(e => s"${e.getGroupId}:${e.getArtifactId}")
+    )
+    if (enableCache && !dependency.getVersion.contains("SNAPSHOT")) {
+      val cacheDir = new File(localRepository, "cache")
+      cacheDir.mkdirs()
+      val cacheFile = new File(cacheDir, dependency.toString)
+      Try {
+        this.synchronized {
+          val cachedResults: util.List[Artifact] =
+            Source.fromFile(cacheFile).getLines().map(new DefaultArtifact(_)).toList
+          cachedResults
+        }
+      } getOrElse {
+        val results = Try {
+          allDependencies(dependency, managedDependencies.map(mavenDependency2AetherDependency).toList, dependencyFilter)
+        } getOrElse util.Collections.emptyList[Artifact]
+
+        if (results.nonEmpty) this.synchronized {
+          FileUtils.writeLines(cacheFile, results)
+        }
+        results
+      }
+    } else {
+      Try {
+        allDependencies(dependency, managedDependencies.map(mavenDependency2AetherDependency).toList, dependencyFilter)
+      } getOrElse util.Collections.emptyList[Artifact]
+    }
+  }
+
   def allDependencies(artifact: Artifact,
                       managedDependencies: util.List[Dependency] = List.empty[Dependency],
                       dependencyFilter: DependencyFilter = new EmptyDependencyFilter,
@@ -93,10 +130,7 @@ object MavenUtil {
     val collectRequest = new CollectRequest(new Dependency(artifact, ""), remoteRepositories)
     collectRequest.setManagedDependencies(managedDependencies)
     val dependencyRequest = new DependencyRequest(collectRequest, dependencyFilter)
-    val dependencyResult = repositorySystem.resolveDependencies(
-      repositorySystemSession,
-      dependencyRequest
-    )
+    val dependencyResult = repositorySystem.resolveDependencies(repositorySystemSession, dependencyRequest)
     dependencyResult.getArtifactResults map (_.getArtifact) toList
   }
 
@@ -139,6 +173,10 @@ object MavenUtil {
       dependency.getVersion, props, stereotype)
     val exclusions = dependency.getExclusions map mavenExclusion2AetherExclusion
     new Dependency(artifact, dependency.getScope, dependency.isOptional, exclusions)
+  }
+
+  implicit def mavenDependency2Artifact(dep: maven.Dependency): Artifact = {
+    new DefaultArtifact(s"${dep.getGroupId}:${dep.getArtifactId}::${dep.getVersion}")
   }
 
   implicit def mavenExclusion2AetherExclusion(exclusion: maven.Exclusion): Exclusion = {

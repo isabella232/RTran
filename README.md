@@ -137,7 +137,7 @@ ___Dependency___
  <dependency>
     <groupId>com.ebay.rtran</groupId>
     <artifactId>rtran-core</artifactId>
-    <version>0.7.0-SNAPSHOT</version>
+    <version>0.8.0-SNAPSHOT</version>
  </dependency>
 ```
 
@@ -154,7 +154,7 @@ ___Sample code___
  <dependency>
     <groupId>com.ebay.rtran</groupId>
     <artifactId>rtran-maven</artifactId>
-    <version>0.7.0-SNAPSHOT</version>
+    <version>0.8.0-SNAPSHOT</version>
  </dependency>
 ```
 
@@ -163,7 +163,7 @@ ___Sample code___
  <dependency>
     <groupId>com.ebay.rtran</groupId>
     <artifactId>rtran-api</artifactId>
-    <version>0.7.0-SNAPSHOT</version>
+    <version>0.8.0-SNAPSHOT</version>
  </dependency>
 ```
 
