@@ -18,7 +18,7 @@ package com.ebay.rtran.maven
 
 import java.io.{File, FileReader, FileWriter}
 
-import com.ebay.rtran.maven.util.{MavenUtil, MavenModelUtil}
+import com.ebay.rtran.maven.util.{MavenModelUtil, MavenUtil}
 import MavenModelUtil._
 import org.apache.maven.model.io.xpp3.MavenXpp3Reader
 import org.apache.maven.model.{Dependency, Model, Plugin}
@@ -27,6 +27,7 @@ import org.jdom.input.SAXBuilder
 import org.jdom.output.Format
 import org.jdom.output.Format.TextMode
 import com.ebay.rtran.api.{IModel, IModelProvider}
+import org.apache.commons.io.{FileUtils, IOUtils}
 
 import scala.collection.JavaConversions._
 import scala.language.postfixOps
@@ -111,7 +112,12 @@ class MultiModuleMavenModelProvider extends IModelProvider[MultiModuleMavenModel
       builder.setIgnoringElementContentWhitespace(false)
       val doc = builder.build(module.pomFile)
       val encoding = Option(module.pomModel.getModelEncoding) getOrElse "UTF-8"
-      val format = Format.getRawFormat.setEncoding(encoding).setTextMode(TextMode.PRESERVE)
+
+      // guess the line separator
+      val content = FileUtils.readFileToString(module.pomFile, encoding)
+      val separator = if (content.contains(IOUtils.LINE_SEPARATOR_WINDOWS)) IOUtils.LINE_SEPARATOR_WINDOWS else IOUtils.LINE_SEPARATOR_UNIX
+      
+      val format = Format.getRawFormat.setEncoding(encoding).setTextMode(TextMode.PRESERVE).setLineSeparator(separator)
       new FixedMavenJDOMWriter().write(module.pomModel, doc, new FileWriter(module.pomFile), format)
     }
   }
