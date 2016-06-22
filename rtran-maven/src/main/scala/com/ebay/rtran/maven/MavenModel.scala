@@ -23,11 +23,12 @@ import MavenModelUtil._
 import org.apache.maven.model.io.xpp3.MavenXpp3Reader
 import org.apache.maven.model.{Dependency, Model, Plugin}
 import org.eclipse.aether.artifact.DefaultArtifact
-import org.jdom.input.SAXBuilder
-import org.jdom.output.Format
-import org.jdom.output.Format.TextMode
+import org.jdom2.input.SAXBuilder
+import org.jdom2.output.Format
+import org.jdom2.output.Format.TextMode
 import com.ebay.rtran.api.{IModel, IModelProvider}
 import org.apache.commons.io.{FileUtils, IOUtils}
+import org.apache.maven.model.io.jdom.MavenJDOMWriter
 
 import scala.collection.JavaConversions._
 import scala.language.postfixOps
@@ -116,9 +117,9 @@ class MultiModuleMavenModelProvider extends IModelProvider[MultiModuleMavenModel
       // guess the line separator
       val content = FileUtils.readFileToString(module.pomFile, encoding)
       val separator = if (content.contains(IOUtils.LINE_SEPARATOR_WINDOWS)) IOUtils.LINE_SEPARATOR_WINDOWS else IOUtils.LINE_SEPARATOR_UNIX
-      
+
       val format = Format.getRawFormat.setEncoding(encoding).setTextMode(TextMode.PRESERVE).setLineSeparator(separator)
-      new FixedMavenJDOMWriter().write(module.pomModel, doc, new FileWriter(module.pomFile), format)
+      new MavenJDOMWriter().setExpandEmptyElements(true).write(module.pomModel, doc, new FileWriter(module.pomFile), format)
     }
   }
 

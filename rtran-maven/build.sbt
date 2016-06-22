@@ -17,7 +17,7 @@ libraryDependencies ++= Seq(
 libraryDependencies ++= Seq(
   "org.apache.maven" % "maven-core" % "3.3.3",
   "com.typesafe" % "config" % typesafeConfigVersion,
-  "org.commonjava.maven" % "maven-model-jdom-support" % "3.0.3",
+  "org.commonjava.maven" % "maven3-model-jdom-support" % "1.5",
   "commons-io" % "commons-io" % apacheCommonsIOVersion,
   "ch.qos.logback" % "logback-classic" % logbackVersion,
   "com.typesafe.scala-logging" %% "scala-logging" % scalaLoggingVersion,
