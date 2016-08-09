@@ -16,19 +16,19 @@
 
 package com.ebay.rtran.maven
 
-import java.io.{File, FileReader, FileWriter}
+import java.io._
 
-import com.ebay.rtran.maven.util.{MavenModelUtil, MavenUtil}
-import MavenModelUtil._
+import com.ebay.rtran.api.{IModel, IModelProvider}
+import com.ebay.rtran.maven.util.MavenModelUtil._
+import com.ebay.rtran.maven.util.MavenUtil
+import org.apache.commons.io.{FileUtils, IOUtils}
+import org.apache.maven.model.io.jdom.MavenJDOMWriter
 import org.apache.maven.model.io.xpp3.MavenXpp3Reader
 import org.apache.maven.model.{Dependency, Model, Plugin}
 import org.eclipse.aether.artifact.DefaultArtifact
 import org.jdom2.input.SAXBuilder
 import org.jdom2.output.Format
 import org.jdom2.output.Format.TextMode
-import com.ebay.rtran.api.{IModel, IModelProvider}
-import org.apache.commons.io.{FileUtils, IOUtils}
-import org.apache.maven.model.io.jdom.MavenJDOMWriter
 
 import scala.collection.JavaConversions._
 import scala.language.postfixOps
@@ -104,23 +104,50 @@ case class MavenModel(pomFile: File, pomModel: Model) {
 
 class MultiModuleMavenModelProvider extends IModelProvider[MultiModuleMavenModel, MavenProjectCtx] {
 
+  private val CompilerArgumentsPattern = """(?s)<configuration.*?>(.*?)</configuration>""".r
+
+  private val ArgumentsPattern = """(</?.*?)(:)(.*?/?>)""".r
+
+  private val ArgumentsBackPattern = """(</?.*?)(_colon_)(.*?/?>)""".r
+
+  private val defaultEncoding = "UTF-8"
+
   override def id(): String = getClass.getName
 
   override def save(model: MultiModuleMavenModel): Unit = {
     model.modules foreach { module =>
+      val encoding = Option(module.pomModel.getModelEncoding) getOrElse defaultEncoding
+      val content = fixContent(FileUtils.readFileToString(module.pomFile, encoding))
       val builder = new SAXBuilder
       builder.setIgnoringBoundaryWhitespace(false)
       builder.setIgnoringElementContentWhitespace(false)
-      val doc = builder.build(module.pomFile)
-      val encoding = Option(module.pomModel.getModelEncoding) getOrElse "UTF-8"
+      val doc = builder.build(new StringReader(content))
 
       // guess the line separator
-      val content = FileUtils.readFileToString(module.pomFile, encoding)
       val separator = if (content.contains(IOUtils.LINE_SEPARATOR_WINDOWS)) IOUtils.LINE_SEPARATOR_WINDOWS else IOUtils.LINE_SEPARATOR_UNIX
 
       val format = Format.getRawFormat.setEncoding(encoding).setTextMode(TextMode.PRESERVE).setLineSeparator(separator)
-      new MavenJDOMWriter().setExpandEmptyElements(true).write(module.pomModel, doc, new FileWriter(module.pomFile), format)
+      val outWriter = new StringWriter()
+      new MavenJDOMWriter().setExpandEmptyElements(true).write(module.pomModel, doc, outWriter, format)
+
+      val updatedContent = outWriter.toString
+
+      FileUtils.write(module.pomFile, fixBack(updatedContent), encoding)
     }
+  }
+
+  // replace element like Xlint:-path to Xlint_colon_-path, to pass the validation of xml
+  private def fixContent(content: String) = {
+    CompilerArgumentsPattern.replaceAllIn(content, {matcher =>
+      ArgumentsPattern.replaceAllIn(matcher.matched, "$1_colon_$3")
+    })
+  }
+
+  // replace _colon_ back to :
+  private def fixBack(content: String) = {
+    CompilerArgumentsPattern.replaceAllIn(content, {matcher =>
+      ArgumentsBackPattern.replaceAllIn(matcher.matched, "$1:$3")
+    })
   }
 
   override def create(projectCtx: MavenProjectCtx): MultiModuleMavenModel = {
@@ -136,7 +163,7 @@ class MultiModuleMavenModelProvider extends IModelProvider[MultiModuleMavenModel
     }
 
     def createMavenModel(pomFile: File) = Try {
-      val pomModel = new MavenXpp3Reader().read(new FileReader(pomFile))
+      val pomModel = new MavenXpp3Reader().read(new StringReader(fixContent(FileUtils.readFileToString(pomFile, defaultEncoding))))
       MavenModel(pomFile.getCanonicalFile, pomModel)
     }
 

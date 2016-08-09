@@ -84,10 +84,24 @@
             <plugin>
                 <artifactId>maven-source-plugin</artifactId>
                 <version>2.2.1</version>
+                <configuration>
+                    <compilerArguments combine.children="inherit">
+                        <Werror />
+                        <Xlint:all />
+                        <Xlint:-path />
+                    </compilerArguments>
+                </configuration>
             </plugin>
             <plugin>
                 <artifactId>some-maven-plugin</artifactId>
                 <groupId>com.ebay.rtran.old</groupId>
+                <configuration>
+                    <other>test</other>
+                    <compilerArguments combine.children="append">
+                        <Werror />
+                        <Xlint:-path />
+                    </compilerArguments>
+                </configuration>
             </plugin>
         </plugins>
     </build>
