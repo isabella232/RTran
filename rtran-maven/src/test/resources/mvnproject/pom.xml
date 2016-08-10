@@ -87,9 +87,10 @@
                 <configuration>
                     <compilerArguments combine.children="inherit">
                         <Werror />
-                        <Xlint:all />
+                        <Xlint:all >${test}</Xlint:all>
                         <Xlint:-path />
                     </compilerArguments>
+                    <argLine>${argLine} -Xverify:none</argLine>
                 </configuration>
             </plugin>
             <plugin>

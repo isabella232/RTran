@@ -32,6 +32,7 @@ import org.jdom2.output.Format.TextMode
 
 import scala.collection.JavaConversions._
 import scala.language.postfixOps
+import scala.util.matching.Regex
 import scala.util.{Failure, Success, Try}
 
 
@@ -108,7 +109,7 @@ class MultiModuleMavenModelProvider extends IModelProvider[MultiModuleMavenModel
 
   private val ArgumentsPattern = """(</?.*?)(:)(.*?/?>)""".r
 
-  private val ArgumentsBackPattern = """(</?.*?)(_colon_)(.*?/?>)""".r
+  private val ArgumentsBackPattern = """(</?.*?)(__colon__)(.*?/?>)""".r
 
   private val defaultEncoding = "UTF-8"
 
@@ -136,17 +137,17 @@ class MultiModuleMavenModelProvider extends IModelProvider[MultiModuleMavenModel
     }
   }
 
-  // replace element like Xlint:-path to Xlint_colon_-path, to pass the validation of xml
+  // replace element like Xlint:-path to Xlint__colon__-path, to pass the validation of xml
   private def fixContent(content: String) = {
     CompilerArgumentsPattern.replaceAllIn(content, {matcher =>
-      ArgumentsPattern.replaceAllIn(matcher.matched, "$1_colon_$3")
+      Regex.quoteReplacement(ArgumentsPattern.replaceAllIn(matcher.matched, "$1__colon__$3"))
     })
   }
 
-  // replace _colon_ back to :
+  // replace __colon__ back to :
   private def fixBack(content: String) = {
     CompilerArgumentsPattern.replaceAllIn(content, {matcher =>
-      ArgumentsBackPattern.replaceAllIn(matcher.matched, "$1:$3")
+      Regex.quoteReplacement(ArgumentsBackPattern.replaceAllIn(matcher.matched, "$1:$3"))
     })
   }
 
