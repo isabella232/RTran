@@ -29,7 +29,7 @@ import org.eclipse.aether.connector.basic.BasicRepositoryConnectorFactory
 import org.eclipse.aether.graph.{Dependency, DependencyFilter, DependencyNode, Exclusion}
 import org.eclipse.aether.impl.DefaultServiceLocator
 import org.eclipse.aether.repository.{LocalRepository, RemoteRepository}
-import org.eclipse.aether.resolution.{ArtifactRequest, DependencyRequest, VersionRangeRequest}
+import org.eclipse.aether.resolution.{ArtifactRequest, DependencyRequest, DependencyResolutionException, VersionRangeRequest}
 import org.eclipse.aether.spi.connector.RepositoryConnectorFactory
 import org.eclipse.aether.spi.connector.transport.TransporterFactory
 import org.eclipse.aether.transport.file.FileTransporterFactory
@@ -96,6 +96,12 @@ object MavenUtil {
     val dependencyFilter = new ExclusionsDependencyFilter(
       dependency.getExclusions.map(e => s"${e.getGroupId}:${e.getArtifactId}")
     )
+
+    val recoverFromResolutionException: PartialFunction[Throwable, util.List[Artifact]] = {
+      case e: DependencyResolutionException =>
+        e.getResult.getArtifactResults.flatMap(r => Option(r.getArtifact))
+    }
+
     if (enableCache && !dependency.getVersion.contains("SNAPSHOT")) {
       val cacheDir = new File(localRepository, "cache")
       cacheDir.mkdirs()
@@ -107,19 +113,18 @@ object MavenUtil {
           cachedResults
         }
       } getOrElse {
-        val results = Try {
-          allDependencies(dependency, managedDependencies.map(mavenDependency2AetherDependency).toList, dependencyFilter)
-        } getOrElse util.Collections.emptyList[Artifact]
-
-        if (results.nonEmpty) this.synchronized {
-          FileUtils.writeLines(cacheFile, results)
-        }
-        results
+        Try {
+          val results = allDependencies(dependency, managedDependencies.map(mavenDependency2AetherDependency).toList, dependencyFilter)
+          this.synchronized {
+            FileUtils.writeLines(cacheFile, results)
+          }
+          results
+        } recover recoverFromResolutionException getOrElse util.Collections.emptyList[Artifact]
       }
     } else {
       Try {
         allDependencies(dependency, managedDependencies.map(mavenDependency2AetherDependency).toList, dependencyFilter)
-      } getOrElse util.Collections.emptyList[Artifact]
+      } recover recoverFromResolutionException getOrElse util.Collections.emptyList[Artifact]
     }
   }
 
