@@ -97,7 +97,7 @@ object MavenUtil {
       dependency.getExclusions.map(e => s"${e.getGroupId}:${e.getArtifactId}")
     )
 
-    def recoverFromResolutionException: PartialFunction[Throwable, util.List[Artifact]] = {
+    val recoverFromResolutionException: PartialFunction[Throwable, util.List[Artifact]] = {
       case e: DependencyResolutionException =>
         e.getResult.getArtifactResults.flatMap(r => Option(r.getArtifact))
     }
