@@ -16,11 +16,12 @@
 
 package com.ebay.rtran.core
 
-import com.typesafe.scalalogging.LazyLogging
 import com.ebay.rtran.api.{IModel, IProjectCtx, IRule}
+import com.typesafe.scalalogging.LazyLogging
 
-import scala.util.{Failure, Success, Try}
 import scala.collection.JavaConversions._
+import scala.concurrent.duration._
+import scala.util.{Failure, Success, Try}
 
 
 class RuleEngine extends LazyLogging {
@@ -32,7 +33,10 @@ class RuleEngine extends LazyLogging {
   def execute[P <: IProjectCtx](projectCtx: P, rules: java.util.List[_ <: IRule[_ <: IModel]]): Unit = {
     rules foreach { rule =>
       logger.info("Executing rule {} ...", rule.id)
+      val start = Deadline.now
       executeRule(rule.asInstanceOf[IRule[IModel]], projectCtx)
+      val elapsed = (Deadline.now - start).toMillis
+      logger.info("Executed rule {} in {} ms", rule.id, elapsed.toString)
     }
   }
 
