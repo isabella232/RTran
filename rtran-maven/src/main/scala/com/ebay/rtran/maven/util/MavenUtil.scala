@@ -18,23 +18,25 @@ package com.ebay.rtran.maven.util
 
 import java.io.File
 import java.util
+import java.util.Collections
 
 import com.typesafe.config.ConfigFactory
 import org.apache.commons.io.FileUtils
 import org.apache.maven.repository.internal._
 import org.apache.maven.{model => maven}
 import org.eclipse.aether.artifact.{Artifact, ArtifactProperties, DefaultArtifact, DefaultArtifactType}
-import org.eclipse.aether.collection.CollectRequest
+import org.eclipse.aether.collection.{CollectRequest, DependencyCollectionException}
 import org.eclipse.aether.connector.basic.BasicRepositoryConnectorFactory
-import org.eclipse.aether.graph.{Dependency, DependencyFilter, DependencyNode, Exclusion}
+import org.eclipse.aether.graph._
 import org.eclipse.aether.impl.DefaultServiceLocator
 import org.eclipse.aether.repository.{LocalRepository, RemoteRepository}
-import org.eclipse.aether.resolution.{ArtifactRequest, DependencyRequest, DependencyResolutionException, VersionRangeRequest}
+import org.eclipse.aether.resolution.{ArtifactRequest, DependencyResolutionException, VersionRangeRequest}
 import org.eclipse.aether.spi.connector.RepositoryConnectorFactory
 import org.eclipse.aether.spi.connector.transport.TransporterFactory
 import org.eclipse.aether.transport.file.FileTransporterFactory
 import org.eclipse.aether.transport.http.HttpTransporterFactory
 import org.eclipse.aether.util.filter.ExclusionsDependencyFilter
+import org.eclipse.aether.util.graph.visitor.{FilteringDependencyVisitor, TreeDependencyVisitor}
 import org.eclipse.aether.{RepositorySystem, RepositorySystemSession, repository => aether}
 
 import scala.collection.JavaConversions._
@@ -97,11 +99,6 @@ object MavenUtil {
       dependency.getExclusions.map(e => s"${e.getGroupId}:${e.getArtifactId}")
     )
 
-    val recoverFromResolutionException: PartialFunction[Throwable, util.List[Artifact]] = {
-      case e: DependencyResolutionException =>
-        e.getResult.getArtifactResults.flatMap(r => Option(r.getArtifact))
-    }
-
     if (enableCache && !dependency.getVersion.contains("SNAPSHOT")) {
       val cacheDir = new File(localRepository, "cache")
       cacheDir.mkdirs()
@@ -119,12 +116,12 @@ object MavenUtil {
             FileUtils.writeLines(cacheFile, results)
           }
           results
-        } recover recoverFromResolutionException getOrElse util.Collections.emptyList[Artifact]
+        } getOrElse util.Collections.emptyList[Artifact]
       }
     } else {
       Try {
         allDependencies(dependency, managedDependencies.map(mavenDependency2AetherDependency).toList, dependencyFilter)
-      } recover recoverFromResolutionException getOrElse util.Collections.emptyList[Artifact]
+      } getOrElse util.Collections.emptyList[Artifact]
     }
   }
 
@@ -134,9 +131,23 @@ object MavenUtil {
                       additionalRepositories: util.List[RemoteRepository] = List.empty[RemoteRepository]): util.List[Artifact] = {
     val collectRequest = new CollectRequest(new Dependency(artifact, ""), remoteRepositories)
     collectRequest.setManagedDependencies(managedDependencies)
-    val dependencyRequest = new DependencyRequest(collectRequest, dependencyFilter)
-    val dependencyResult = repositorySystem.resolveDependencies(repositorySystemSession, dependencyRequest)
-    dependencyResult.getArtifactResults map (_.getArtifact) toList
+
+    val collectResult = Try {
+      repositorySystem.collectDependencies(repositorySystemSession, collectRequest)
+    } recover {
+      case e: DependencyCollectionException => e.getResult
+      case e => throw e
+    }
+
+    (for {
+      result <- collectResult.toOption
+      root <- Option(result.getRoot)
+    } yield {
+      val rtranVisitor = new RtranDependencyVisitor
+      val visitor = new TreeDependencyVisitor(new FilteringDependencyVisitor(rtranVisitor, dependencyFilter))
+      root.accept(visitor)
+      rtranVisitor.artifacts
+    }).getOrElse(Collections.emptyList())
   }
 
   def resolveArtifact(artifact: Artifact,
@@ -193,4 +204,17 @@ object MavenUtil {
   }
 }
 
+/**
+  * DependencyNode for collecting resolved transitive dependencies
+  *
+  */
+private class RtranDependencyVisitor extends DependencyVisitor {
+  val artifacts: util.List[Artifact] = new util.ArrayList[Artifact]()
 
+  override def visitEnter(node: DependencyNode): Boolean = {
+    Option(node.getArtifact).foreach(artifacts.add)
+    true
+  }
+
+  override def visitLeave(node: DependencyNode): Boolean = true
+}
