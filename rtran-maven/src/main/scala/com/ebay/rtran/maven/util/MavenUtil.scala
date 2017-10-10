@@ -46,6 +46,10 @@ import scala.util.Try
 
 object MavenUtil {
   private lazy val config = ConfigFactory.load(getClass.getClassLoader).getConfig("maven.util")
+  private val DEFAULT = "default"
+
+  private lazy val DEFAULT_REPOSITORY_REMOTE = new RemoteRepository.Builder("central", DEFAULT,
+    "http://repo1.maven.org/maven2").build()
 
   lazy val repositorySystem = {
     val locator = MavenRepositorySystemUtils.newServiceLocator
@@ -70,10 +74,18 @@ object MavenUtil {
       } else {
         (new aether.RepositoryPolicy(true, "daily", ""), new aether.RepositoryPolicy(false, "always", ""))
       }
-      new RemoteRepository.Builder(key, "default", url)
-        .setReleasePolicy(releasePolicy)
-        .setSnapshotPolicy(snapshotPolicy)
-        .build
+      if(key =="maven_central_mirror"){
+        new RemoteRepository.Builder(key, DEFAULT, url)
+          .setReleasePolicy(releasePolicy)
+          .setSnapshotPolicy(snapshotPolicy)
+          .setMirroredRepositories(List(DEFAULT_REPOSITORY_REMOTE))
+          .build
+      }else{
+        new RemoteRepository.Builder(key, DEFAULT, url)
+          .setReleasePolicy(releasePolicy)
+          .setSnapshotPolicy(snapshotPolicy)
+          .build
+      }
     } toList
   }
 
@@ -83,7 +95,7 @@ object MavenUtil {
   private lazy val remoteSnapshotRepositories: List[RemoteRepository] =
     remoteRepositories.filter(_.getPolicy(true).isEnabled)
 
-  private[maven] lazy val localRepository = new File(config.getString("local-repository"))
+  private[maven] lazy val localRepository = new File(System.getProperty("user.home"), config.getString("local-repository"))
 
   def repositorySystemSession: RepositorySystemSession = {
     val session = MavenRepositorySystemUtils.newSession
@@ -112,8 +124,11 @@ object MavenUtil {
       } getOrElse {
         Try {
           val results = allDependencies(dependency, managedDependencies.map(mavenDependency2AetherDependency).toList, dependencyFilter)
-          this.synchronized {
-            FileUtils.writeLines(cacheFile, results)
+          if (results.find(_.getVersion.endsWith("SNAPSHOT")).isEmpty) {
+            //the release artifact should not depend on any snapshot version
+            this.synchronized {
+              FileUtils.writeLines(cacheFile, results)
+            }
           }
           results
         } getOrElse util.Collections.emptyList[Artifact]
@@ -155,7 +170,7 @@ object MavenUtil {
     val artifactRequest = new ArtifactRequest(
       artifact,
       (new RemoteRepository.Builder(
-        "local", "default", s"file://${localRepository.getAbsolutePath}"
+        "local", DEFAULT, s"file://${localRepository.getAbsolutePath}"
       ).build :: remoteRepositories) ++ additionalRepositories,
       ""
     )

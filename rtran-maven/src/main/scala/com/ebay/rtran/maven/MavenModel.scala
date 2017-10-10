@@ -36,7 +36,7 @@ import scala.util.matching.Regex
 import scala.util.{Failure, Success, Try}
 
 
-case class MultiModuleMavenModel(modules: List[MavenModel]) extends IModel {
+case class MultiModuleMavenModel(rootPom: File, modules: List[MavenModel]) extends IModel {
   lazy val (parents, subModules) = modules.partition(_.localParent.isEmpty)
 }
 
@@ -177,7 +177,7 @@ class MultiModuleMavenModelProvider extends IModelProvider[MultiModuleMavenModel
         } filter {m =>
           !keys.contains(m.pomFile)
         }
-        MultiModuleMavenModel(unprocessedParents ++ modules)
+        MultiModuleMavenModel(projectCtx.rootPomFile, unprocessedParents ++ modules)
       case Failure(e) => throw e
     }
   }
