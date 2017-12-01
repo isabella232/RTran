@@ -107,9 +107,11 @@ object MavenUtil {
   def getTransitiveDependencies(dependency: maven.Dependency,
                                 managedDependencies: util.List[maven.Dependency] = List.empty[maven.Dependency],
                                 enableCache: Boolean = true): util.List[Artifact] = {
-    val dependencyFilter = new ExclusionsDependencyFilter(
-      dependency.getExclusions.map(e => s"${e.getGroupId}:${e.getArtifactId}")
-    )
+
+    def filterCachedResults(artifacts: util.List[Artifact]): util.List[Artifact] ={
+      val excls = dependency.getExclusions.map(e => s"${e.getGroupId}:${e.getArtifactId}").toSet
+      artifacts.filterNot(a => excls.contains(s"${a.getGroupId}:${a.getArtifactId}"))
+    }
 
     if (enableCache && !dependency.getVersion.contains("SNAPSHOT")) {
       val cacheDir = new File(localRepository, "cache")
@@ -119,21 +121,29 @@ object MavenUtil {
         this.synchronized {
           val cachedResults: util.List[Artifact] =
             Source.fromFile(cacheFile).getLines().map(new DefaultArtifact(_)).toList
-          cachedResults
+          filterCachedResults(cachedResults)
         }
       } getOrElse {
         Try {
-          val results = allDependencies(dependency, managedDependencies.map(mavenDependency2AetherDependency).toList, dependencyFilter)
+          /**
+            * should not cache exclusions result as applications upgrades are running parallel.
+            * if one application already has exclusion and has the result cached, other application get affected.
+            */
+          val results = allDependencies(dependency, managedDependencies.map(mavenDependency2AetherDependency).toList, new EmptyDependencyFilter)
           if (results.find(_.getVersion.endsWith("SNAPSHOT")).isEmpty) {
             //the release artifact should not depend on any snapshot version
             this.synchronized {
               FileUtils.writeLines(cacheFile, results)
             }
           }
-          results
+          filterCachedResults(results)
         } getOrElse util.Collections.emptyList[Artifact]
       }
     } else {
+      val dependencyFilter = new ExclusionsDependencyFilter(
+        dependency.getExclusions.map(e => s"${e.getGroupId}:${e.getArtifactId}")
+      )
+
       Try {
         allDependencies(dependency, managedDependencies.map(mavenDependency2AetherDependency).toList, dependencyFilter)
       } getOrElse util.Collections.emptyList[Artifact]
