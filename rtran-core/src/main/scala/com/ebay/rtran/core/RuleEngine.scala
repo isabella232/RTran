@@ -47,7 +47,7 @@ class RuleEngine extends LazyLogging {
         val result = Try(rule transform model) match {
           case Success(newModel) => newModel
           case Failure(e) => logger.error("Failed execute rule {} on model {}, {}", rule.id, model, e)
-            model
+            throw e
         }
         provider save result
       case None => logger.error("Cannot find provider for {} used in rule {}", rule.rutimeModelClass, rule.id)
