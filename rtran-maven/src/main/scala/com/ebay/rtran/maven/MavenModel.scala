@@ -77,10 +77,23 @@ case class MavenModel(pomFile: File, pomModel: Model) {
   }
 
   def managedDependencies: Map[String, Dependency] = {
-    parent.map(_.managedDependencies).getOrElse(Map.empty) ++
+    var result = parent.map(_.managedDependencies).getOrElse(Map.empty) ++
       Option(pomModel.getDependencyManagement)
         .map(_.getDependencies.map(resolve).map(dep => dep.getManagementKey -> dep).toMap)
         .getOrElse(Map.empty)
+
+    val imports = result.values.toList.filter(dep => dep.getScope == "import" && dep.getType == "pom")
+    imports foreach { dep =>
+      val artifact = MavenUtil.resolveArtifact(
+        new DefaultArtifact(s"${dep.getGroupId}:${dep.getArtifactId}:pom:${dep.getVersion}")
+      )
+      if (artifact.getFile.exists()) {
+        val model = MavenModel(artifact.getFile, new MavenXpp3Reader().read(new FileReader(artifact.getFile)))
+        result = result ++ model.managedDependencies
+      }
+    }
+
+    result
   }
 
   def managedPlugins: Map[String, Plugin] = {
