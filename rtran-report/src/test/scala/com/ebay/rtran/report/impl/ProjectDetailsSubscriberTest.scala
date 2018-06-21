@@ -44,26 +44,22 @@ class ProjectDetailsSubscriberTest extends FlatSpecLike with Matchers {
     val subscriber = new ProjectDetailsSubscriber
 
     val loggingEvent = new LoggingEvent
-    loggingEvent.setMessage("Starting upgrade Scala project to 2.5.4-RELEASE, pom pom.xml with taskId None")
+    loggingEvent.setMessage("Starting upgrade pom.xml with taskId None")
     subscriber.accept(loggingEvent)
     subscriber.dumpTo(outputStream)
     val result = new String(outputStream.toByteArray)
     result should include ("pom.xml")
-    result should include ("2.5.4-RELEASE")
-    result should include ("Scala project upgrade report")
     result should include ("Upgrade job ID | None")
     result should include ("Full upgrade log | [link](raptor-upgrade-debug.log)")
     result should include ("Upgrade warnings only log | [link](raptor-upgrade-warn.log)")
     outputStream.reset()
 
     val loggingEvent2 = new LoggingEvent
-    loggingEvent2.setMessage("Starting upgrade Scala project to 2.5.4-RELEASE, pom pom.xml with taskId Some(1234)")
+    loggingEvent2.setMessage("Starting upgrade pom.xml with taskId Some(1234)")
     subscriber.accept(loggingEvent2)
     subscriber.dumpTo(outputStream)
     val result2 = new String(outputStream.toByteArray)
     result2 should include ("pom.xml")
-    result2 should include ("2.5.4-RELEASE")
-    result2 should include ("Scala project upgrade report")
     result2 should include ("Upgrade job ID | Some(1234)")
     result2 should include ("Full upgrade log | [link](raptor-upgrade-debug-1234.log)")
     result2 should include ("Upgrade warnings only log | [link](raptor-upgrade-warn-1234.log)")

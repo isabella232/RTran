@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.ebay.rtran.report.impl;
+package com.ebay.rtran.report.impl
 
 import java.io.OutputStream
 import java.util.Optional
@@ -33,13 +33,11 @@ class ProjectDetailsSubscriber extends IReportEventSubscriber[ProjectDetails]{
   override def filter(event: scala.Any): Optional[ProjectDetails] = {
     val details = event match {
       case event1: ILoggingEvent =>
-        // Starting upgrade {} project to {}, pom {}
-        val NoTaskId = """Starting upgrade (.*) project to (.*), pom (.*) with taskId None""".r
-        val HasTaskId = """Starting upgrade (.*) project to (.*), pom (.*) with taskId Some\((.*)\)""".r
-
+        val NoTaskId = """Starting upgrade (.*) with taskId None""".r
+        val HasTaskId = """Starting upgrade (.*) with taskId Some\((.*)\)""".r
         event1.getFormattedMessage match {
-          case HasTaskId(stack, targetVersion, pomPath, id) => Some(ProjectDetails(pomPath, stack, targetVersion, Some(id)))
-          case NoTaskId(stack, targetVersion, pomPath) => Some(ProjectDetails(pomPath, stack, targetVersion, None))
+          case HasTaskId(pomPath, id) => Some(ProjectDetails(pomPath, Some(id)))
+          case NoTaskId(pomPath) => Some(ProjectDetails(pomPath, None))
           case _ => None
         }
       case _ => None
@@ -48,19 +46,18 @@ class ProjectDetailsSubscriber extends IReportEventSubscriber[ProjectDetails]{
   }
 
   override def dumpTo(outputStream: OutputStream): Unit = projectDetails match {
-    case Some(ProjectDetails(pathToPom, stack, targetVersion, taskId)) =>
-      outputStream.write(outputTemplate(pathToPom, stack, targetVersion, taskId).getBytes("utf8"))
+    case Some(ProjectDetails(pathToPom, taskId)) =>
+      outputStream.write(outputTemplate(pathToPom, taskId).getBytes("utf8"))
     case None =>
   }
 
-  private def outputTemplate(pathToPom: String,stack: String, targetVersion: String,  taskId: Option[String]) = {
+  private def outputTemplate(pathToPom: String, taskId: Option[String]) = {
     s"""
-       |# $stack project upgrade report
+       |# Project upgrade report to Raptor 2.0
        |## Project details
        |Name | Description
        |---- | -----------
        |Path to project POM |	$pathToPom
-       |Target Version |	$targetVersion
        |Upgrade job ID | $taskId
        |Full upgrade log | [link](raptor-upgrade-debug${taskId.map("-" + _) getOrElse ""}.log)
        |Upgrade warnings only log | [link](raptor-upgrade-warn${taskId.map("-" + _) getOrElse ""}.log)
@@ -73,4 +70,4 @@ class ProjectDetailsSubscriber extends IReportEventSubscriber[ProjectDetails]{
   override val sequence = 0
 }
 
-case class ProjectDetails(pathToPom: String, stack: String, targetVersion: String, taskId: Option[String])
+case class ProjectDetails(pathToPom: String, taskId: Option[String])
