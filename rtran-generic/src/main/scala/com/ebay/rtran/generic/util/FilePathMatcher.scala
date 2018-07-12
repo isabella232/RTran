@@ -30,7 +30,9 @@ object FilePathMatcher {
 
   def apply(rootDir: File, pathPattern: String): Try[PathMatcher] = Try {
     val trimmedPattern = new String(pathPattern.trim.toCharArray.dropWhile(_ == '/')).trim
-    FileSystems.getDefault.getPathMatcher(s"glob:${rootDir.getAbsolutePath}/$trimmedPattern")
+	val path=rootDir.getAbsolutePath.replaceAll("\\\\","/")
+    FileSystems.getDefault.getPathMatcher(s"glob:${path}/$trimmedPattern")
+    //FileSystems.getDefault.getPathMatcher(s"glob:${rootDir.getAbsolutePath}/$trimmedPattern")
   }
 }
 
