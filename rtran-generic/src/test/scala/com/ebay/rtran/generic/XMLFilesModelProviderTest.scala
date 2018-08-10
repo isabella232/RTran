@@ -40,7 +40,7 @@ class XMLFilesModelProviderTest extends FlatSpecLike with Matchers {
     val model = provider.create(new GenericProjectCtx(projectRoot))
     val (file, root) = model.xmlRoots.head
     val newFile = new File(file.getParentFile, file.getName + ".new")
-    provider.save(model.copy(modified = Map(newFile -> root)))
+    provider.save(model.copy(modified = Map(newFile -> Some(root))))
     val content = Source.fromFile(newFile).getLines.filterNot(_.matches("\\s+")).map(_.trim).mkString
     content should not be ""
     FileUtils.deleteQuietly(newFile)
