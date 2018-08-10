@@ -31,14 +31,14 @@ import scala.util.{Success, Try}
 
 case class XMLFilesModel(projectRoot: File,
                          xmlRoots: Map[File, OMElement],
-                         modified: Map[File, OMElement] = Map.empty) extends IModel
+                         modified: Map[File, Option[OMElement]] = Map.empty) extends IModel
 
 class XMLFilesModelProvider extends IModelProvider[XMLFilesModel, GenericProjectCtx] {
   override def id(): String = getClass.getName
 
   override def save(model: XMLFilesModel): Unit = {
     model.modified foreach {
-      case (file, root) => XmlUtil.writeOMElement2File(file, root)
+      case (file, root) => root.map(r => XmlUtil.writeOMElement2File(file, r))
     }
   }
 
