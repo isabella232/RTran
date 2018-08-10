@@ -44,37 +44,49 @@ class ModifyXMLFilesRule(ruleConfig: ModifyXMLFilesRuleConfig) extends IRule[XML
       }
     } map {
       case (file, root) =>
-        file -> ruleConfig.operations.foldLeft(root)(applyOperation)
+        file -> ruleConfig.operations.foldLeft(Option(root))(applyOperation)
     }
+
     model.copy(modified = modified)
   }
 
-  private def applyOperation(root: OMElement, operation: ModifyXMLOperation) = {
+  private def applyOperation(root: Option[OMElement], operation: ModifyXMLOperation): Option[OMElement] = {
     import OperationType._
-    val xpathExpression = new AXIOMXPath(root, operation.xpath)
-    Option(root.getDefaultNamespace).foreach(ns => xpathExpression.addNamespace("defaultns", ns.getNamespaceURI))
-    val nodes = xpathExpression.selectNodes(root).map(_.asInstanceOf[OMElement])
-    operation match {
-      case ModifyXMLOperation(_, Delete, _) =>
-        nodes.foreach(_.detach)
-        root
-      case ModifyXMLOperation(_, _, None) => root
-      case ModifyXMLOperation(_, optType, Some(newNodeStr)) =>
-        val newNode = new StAXOMBuilder(new ByteArrayInputStream(newNodeStr.getBytes)).getDocumentElement
-        Option(root.getDefaultNamespace).foreach(ns => setNamespaceRecursively(newNode, ns))
-        optType match {
-          case Insert =>
-            nodes foreach {node =>
-              node.addChild(newNode)
-            }
-          case Replace =>
-            nodes foreach {node =>
-              node.getParent.addChild(newNode)
-              node.detach
-            }
+    root match {
+      case Some(element) => {
+        val xpathExpression = new AXIOMXPath(element, operation.xpath)
+        Option(element.getDefaultNamespace).foreach(ns => xpathExpression.addNamespace("defaultns", ns.getNamespaceURI))
+        val nodes = xpathExpression.selectNodes(element).map(_.asInstanceOf[OMElement])
+        if(!nodes.isEmpty){
+          operation match {
+            case ModifyXMLOperation(_, Delete, _) =>
+              nodes.foreach(_.detach)
+              Some(element)
+            case ModifyXMLOperation(_, _, None) => Some(element)
+            case ModifyXMLOperation(_, optType, Some(newNodeStr)) =>
+              val newNode = new StAXOMBuilder(new ByteArrayInputStream(newNodeStr.getBytes)).getDocumentElement
+              Option(element.getDefaultNamespace).foreach(ns => setNamespaceRecursively(newNode, ns))
+              optType match {
+                case Insert =>
+                  nodes foreach {node =>
+                    node.addChild(newNode)
+                  }
+                case Replace =>
+                  nodes foreach {node =>
+                    node.getParent.addChild(newNode)
+                    node.detach
+                  }
+              }
+              Some(element)
+          }
+        }else{
+          None
         }
-        root
+      }
+
+      case _ => None
     }
+
   }
 
   private def setNamespaceRecursively(root: OMElement, namespace: OMNamespace): Unit = {
