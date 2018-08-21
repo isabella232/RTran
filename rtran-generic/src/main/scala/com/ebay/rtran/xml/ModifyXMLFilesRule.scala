@@ -70,6 +70,9 @@ class ModifyXMLFilesRule(ruleConfig: ModifyXMLFilesRuleConfig) extends IRule[XML
                 case Insert =>
                   nodes foreach {node =>
                     node.addChild(newNode)
+                    //Fix for certain xml, the changes were only applied to last node.
+                    node.getParent.addChild(node.cloneOMElement())
+                    node.detach()
                   }
                 case Replace =>
                   nodes foreach {node =>
