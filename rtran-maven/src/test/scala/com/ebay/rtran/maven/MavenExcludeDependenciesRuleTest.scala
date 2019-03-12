@@ -36,7 +36,7 @@ class MavenExcludeDependenciesRuleTest extends FlatSpecLike with Matchers with B
 
   "MavenExcludeDependenciesRule" should "exclude the dependencies if they are used transitively" in {
     val ruleConfig = MavenExcludeDependenciesRuleConfig(
-      Set(SimpleExclusion("org.springframework", "spring-asm"))
+      Set(SimpleExclusion("org.springframework", "spring-aop"))
     )
     val projectCtx = new MavenProjectCtx(destProjectRoot)
     val provider = new MultiModuleMavenModelProvider

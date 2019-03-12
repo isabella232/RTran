@@ -54,6 +54,6 @@ class MavenAddManagedDependenciesRuleTest extends FlatSpecLike with Matchers wit
     dm1.get.getVersion should be ("1.7.12")
     val dm2 = parent.managedDependencies.values.find(_.getArtifactId == "akka-actor_2.11")
     dm2 should not be None
-    dm2.get.getVersion should be ("2.3.6")
+    dm2.get.getVersion should be ("2.4.17")
   }
 }

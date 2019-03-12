@@ -22,6 +22,7 @@ import com.ebay.rtran.api.{IModel, IModelProvider}
 import com.ebay.rtran.maven.util.MavenModelUtil._
 import com.ebay.rtran.maven.util.MavenUtil
 import org.apache.commons.io.{FileUtils, IOUtils}
+import org.apache.commons.lang3.StringUtils
 import org.apache.maven.model.io.jdom.MavenJDOMWriter
 import org.apache.maven.model.io.xpp3.MavenXpp3Reader
 import org.apache.maven.model.{Dependency, Model, Plugin}
@@ -112,7 +113,17 @@ case class MavenModel(pomFile: File, pomModel: Model) {
     } toList
   }
 
-  implicit def properties: Map[String, String] = parent.map(_.properties).getOrElse(Map.empty) ++ pomModel.getProperties
+  implicit def properties: Map[String, String] = {
+    var props = parent.map(_.properties).getOrElse(Map.empty) ++ pomModel.getProperties
+    //solve case like spring-framework.version=${spring.version} & spring.version=1.1.1
+    val propsToSolveReference = props.filter((p) => (p._2.startsWith("${") && p._2.endsWith("}")))
+    propsToSolveReference foreach { (p) =>
+      val value = StringUtils.substringBetween(p._2, "${", "}")
+      props += (p._1 -> props.get(value).getOrElse(p._2))
+    }
+
+    props
+  }
 
 }
 
