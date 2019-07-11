@@ -87,7 +87,12 @@ case class MavenModel(pomFile: File, pomModel: Model) {
       case _ => ""
     }
 
-    props += ("project.version" -> pomModel.getVersion)
+    val parentVersion = parent match {
+      case Some(model) => model.pomModel.getVersion
+      case _ => ""
+    }
+
+    props += ("project.version" -> Option(pomModel.getVersion).getOrElse(parentVersion))
     props += ("project.groupId" -> Option(pomModel.getGroupId).getOrElse(parentGroupId))
     props += ("project.artifactId" -> pomModel.getArtifactId)
 
