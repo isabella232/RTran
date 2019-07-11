@@ -33,6 +33,7 @@ import org.jdom2.output.Format.TextMode
 
 import scala.collection.JavaConversions._
 import scala.language.postfixOps
+import scala.reflect.ClassTag
 import scala.util.matching.Regex
 import scala.util.{Failure, Success, Try}
 
@@ -68,6 +69,7 @@ case class MavenModel(pomFile: File, pomModel: Model) {
     }
   }
 
+
   def resolvedDependencies: List[Dependency] = {
     pomModel.getDependencies.map(resolve) map { dep =>
       managedDependencies get dep.getManagementKey match {
@@ -78,6 +80,19 @@ case class MavenModel(pomFile: File, pomModel: Model) {
   }
 
   def managedDependencies: Map[String, Dependency] = {
+    //poms may have below variables
+    var props = this.properties
+    val parentGroupId = parent match {
+      case Some(model) => model.pomModel.getGroupId
+      case _ => ""
+    }
+
+    props += ("project.version" -> pomModel.getVersion)
+    props += ("project.groupId" -> Option(pomModel.getGroupId).getOrElse(parentGroupId))
+    props += ("project.artifactId" -> pomModel.getArtifactId)
+
+    implicit val properties = props
+
     var result = parent.map(_.managedDependencies).getOrElse(Map.empty) ++
       Option(pomModel.getDependencyManagement)
         .map(_.getDependencies.map(resolve).map(dep => dep.getManagementKey -> dep).toMap)
@@ -97,11 +112,27 @@ case class MavenModel(pomFile: File, pomModel: Model) {
     result
   }
 
+
   def managedPlugins: Map[String, Plugin] = {
-    parent.map(_.managedPlugins).getOrElse(Map.empty) ++
+    val parentPlugins = parent.map(_.managedPlugins).getOrElse(Map.empty)
+    val modelPlugins =
       Try(pomModel.getBuild.getPluginManagement)
         .map(_.getPlugins.map(resolve).map(plugin => plugin.getKey -> plugin).toMap)
         .getOrElse(Map.empty)
+
+    //plugin management can inherit version from parent
+    modelPlugins.foreach(p =>
+      if (Option(p._2.getVersion).isEmpty) {
+        val pluginDefinedInParent = parentPlugins.get(p._1)
+        pluginDefinedInParent match {
+          case Some(plugin) => p._2.setVersion(plugin.getVersion)
+          case _ => //nothing
+        }
+
+      }
+    )
+
+    parentPlugins ++ modelPlugins
   }
 
   def resolvedPlugins: List[Plugin] = {
@@ -121,8 +152,8 @@ case class MavenModel(pomFile: File, pomModel: Model) {
       val value = StringUtils.substringBetween(p._2, "${", "}")
       props += (p._1 -> props.get(value).getOrElse(p._2))
     }
-
     props
+
   }
 
 }
