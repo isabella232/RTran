@@ -42,22 +42,47 @@ object MavenModelUtil {
     def parentKey = Option(model.getParent).map(p => s"${p.getGroupId}:${p.getArtifactId}:${p.getVersion}") getOrElse ""
   }
 
+
+
   def resolve[T](obj: T)(implicit properties: Map[String, String], classTag: ClassTag[T]): T = {
-    val ExtractPattern = """^\$\{(.+)\}$""".r
+    val ExtractPattern = """\$\{(.+)\}""".r
     val clazz = classTag.runtimeClass
     val result = clazz.getMethod("clone").invoke(obj).asInstanceOf[T]
     val getters = clazz.getDeclaredMethods filter { method =>
       method.getName.startsWith("get") && method.getParameterCount == 0 && method.getReturnType == classOf[String]
     }
-    getters foreach {getter =>
-      getter.invoke(obj, getter.getParameterTypes:_*).asInstanceOf[String] match {
-        case ExtractPattern(key) =>
-          properties.get(key) foreach {value =>
-            val setter = Try(clazz.getDeclaredMethod(getter.getName.replaceFirst("get", "set"), getter.getReturnType))
-            setter.foreach(_.invoke(result, value))
+
+    def replaceVariable(s: String, properties: Map[String, String]): String = {
+      Option(s) match {
+        case Some(v) =>
+          var replaced = s
+          ExtractPattern.findAllMatchIn(s) foreach { mat =>
+            replaced = s.replace(mat.matched, properties.get(mat.group(1)).getOrElse(""))
           }
-        case other =>
+          replaced
+
+        case _ => ""
       }
+    }
+    getters foreach {getter =>
+
+      //FIX: should replace all variables. Case "a.b.c-${scala.version}" was not working
+      val v = getter.invoke(obj, getter.getParameterTypes: _*).asInstanceOf[String]
+      val newV = replaceVariable(v, properties)
+      if (Option(v).getOrElse("") != newV) {
+        val setter = Try(clazz.getDeclaredMethod(getter.getName.replaceFirst("get", "set"), getter.getReturnType))
+        setter.foreach(_.invoke(result, newV))
+      }
+
+
+//      getter.invoke(obj, getter.getParameterTypes:_*).asInstanceOf[String] match {
+//        case ExtractPattern(key) =>
+//          properties.get(key) foreach {value =>
+//            val setter = Try(clazz.getDeclaredMethod(getter.getName.replaceFirst("get", "set"), getter.getReturnType))
+//            setter.foreach(_.invoke(result, value))
+//          }
+//        case other =>
+//      }
     }
     result
   }
