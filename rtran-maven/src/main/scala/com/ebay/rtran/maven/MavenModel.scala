@@ -110,7 +110,9 @@ case class MavenModel(pomFile: File, pomModel: Model) {
       )
       if (artifact.getFile.exists()) {
         val model = MavenModel(artifact.getFile, new MavenXpp3Reader().read(new FileReader(artifact.getFile)))
-        result = result ++ model.managedDependencies
+        
+        // the dependencies declared in imported pom has lower priority than dependencies in current pom's dependency management
+        result = model.managedDependencies ++ result
       }
     }
 
