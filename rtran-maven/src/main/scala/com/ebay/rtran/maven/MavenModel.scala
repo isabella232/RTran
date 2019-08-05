@@ -71,8 +71,9 @@ case class MavenModel(pomFile: File, pomModel: Model) {
 
 
   def resolvedDependencies: List[Dependency] = {
+    val managed = managedDependencies
     pomModel.getDependencies.map(resolve) map { dep =>
-      managedDependencies get dep.getManagementKey match {
+      managed get dep.getManagementKey match {
         case None => dep
         case Some(md) => merge(md, dep)
       }
