@@ -42,81 +42,167 @@ case class MultiModuleMavenModel(rootPom: File, modules: List[MavenModel]) exten
   lazy val (parents, subModules) = modules.partition(_.localParent.isEmpty)
 }
 
+/**
+  * class not thread-safe
+  * @param pomFile
+  * @param pomModel
+  */
 case class MavenModel(pomFile: File, pomModel: Model) {
+  private[this] var cache_resolveDependenciesList = List.empty[Dependency]
+  private[this] var cache_managedDependenciesMap = Map.empty[String, Dependency]
 
-  def localParent = Option(pomModel.getParent) flatMap { p =>
-    Try {
-      val relativePomPath = {
-        if (p.getRelativePath.endsWith("pom.xml")) p.getRelativePath
-        else p.getRelativePath.stripPrefix("/") + "/pom.xml"
-      }
-      val localParentFile = new File(pomFile.getParent, relativePomPath).getCanonicalFile
-      val model = new MavenXpp3Reader().read(new FileReader(localParentFile))
-      MavenModel(localParentFile, model)
-    } match {
-      case Success(m) if m.pomModel.getArtifactId == p.getArtifactId => Some(m)
-      case _ => None
+  private[this] var oldDependenciesList = List.empty[Dependency]
+  private[this] var oldManagedDependenciesList = List.empty[Dependency]
+
+
+  private[this] var cache_parent = Option.empty[MavenModel]
+  private[this] var cache_localParent = Option.empty[MavenModel]
+
+
+  /**
+    * What we cared about is resolved dependencies & managed dependencies. SO
+    * A model changed here means any of the parent and itself's dependencies & dependency management changes
+    * @return
+    */
+  def modelChanged: Boolean = {
+    val newList = pomModel.getDependencies.toList
+    val newManagedList = Option(pomModel.getDependencyManagement).map(_.getDependencies.toList) getOrElse List.empty
+
+    dependenciesChanged(oldDependenciesList, newList) || dependenciesChanged(oldManagedDependenciesList, newManagedList) || (parent match {
+      case Some(model) => model.modelChanged
+      case _ => false
+    })
+  }
+
+  private def dependenciesChanged(oldList:List[Dependency], newList:List[Dependency]): Boolean = {
+    if (oldList.size != newList.size) {
+      true;
+    } else {
+      oldList.map(dep => key(dep)).toSet.diff(newList.map(dep => key(dep)).toSet).nonEmpty
     }
+  }
+
+  private def key(dep: Dependency): String = {
+    dep.getManagementKey + ":" + Option(dep.getVersion).getOrElse("")
+  }
+
+  def cacheModelDependencyInfo = {
+    this.oldDependenciesList = pomModel.getDependencies.toList
+    this.oldManagedDependenciesList = Option(pomModel.getDependencyManagement).map(_.getDependencies.toList) getOrElse List.empty
+  }
+
+  def localParent = {
+    cache_localParent match {
+      case Some(p) => cache_localParent
+      case _ =>
+        val model = Option(pomModel.getParent) flatMap { p =>
+          Try {
+            val relativePomPath = {
+              if (p.getRelativePath.endsWith("pom.xml")) p.getRelativePath
+              else p.getRelativePath.stripPrefix("/") + "/pom.xml"
+            }
+            val localParentFile = new File(pomFile.getParent, relativePomPath).getCanonicalFile
+            val model = new MavenXpp3Reader().read(new FileReader(localParentFile))
+            MavenModel(localParentFile, model)
+          } match {
+            case Success(m) if m.pomModel.getArtifactId == p.getArtifactId => Some(m)
+            case _ => None
+          }
+        }
+
+        if (!model.isEmpty) {
+          cache_localParent = model
+        }
+
+        model
+    }
+
   }
 
   def parent: Option[MavenModel] = localParent orElse {
-    Option(pomModel.getParent) map {p =>
-      val artifact = MavenUtil.resolveArtifact(
-        new DefaultArtifact(s"${p.getGroupId}:${p.getArtifactId}:pom:${p.getVersion}")
-      )
-      val model = new MavenXpp3Reader().read(new FileReader(artifact.getFile))
-      MavenModel(artifact.getFile, model)
+    cache_parent match {
+      case Some(p) => cache_parent
+      case _ =>
+        val model = Option(pomModel.getParent) map { p =>
+          val artifact = MavenUtil.resolveArtifact(
+            new DefaultArtifact(s"${p.getGroupId}:${p.getArtifactId}:pom:${p.getVersion}")
+          )
+          val model = new MavenXpp3Reader().read(new FileReader(artifact.getFile))
+          MavenModel(artifact.getFile, model)
+        }
+
+        if (!model.isEmpty) {
+          cache_parent = model
+        }
+        model
     }
+
   }
 
-
   def resolvedDependencies: List[Dependency] = {
-    pomModel.getDependencies.map(resolve) map { dep =>
-      managedDependencies get dep.getManagementKey match {
-        case None => dep
-        case Some(md) => merge(md, dep)
-      }
-    } toList
+    if (cache_resolveDependenciesList.isEmpty || modelChanged) {
+      val managed = managedDependencies
+      cache_resolveDependenciesList = pomModel.getDependencies.map(resolve) map { dep =>
+        managed get dep.getManagementKey match {
+          case None => dep
+          case Some(md) => merge(md, dep)
+        }
+      } toList
+
+      cacheModelDependencyInfo
+    }else{
+      println("hit for resolvedDependencies cache")
+    }
+
+    cache_resolveDependenciesList
+
   }
 
   def managedDependencies: Map[String, Dependency] = {
-    //poms may have below variables
-    var props = this.properties
-    val parentGroupId = parent match {
-      case Some(model) => model.pomModel.getGroupId
-      case _ => ""
-    }
-
-    val parentVersion = parent match {
-      case Some(model) => model.pomModel.getVersion
-      case _ => ""
-    }
-
-    props += ("project.version" -> Option(pomModel.getVersion).getOrElse(parentVersion))
-    props += ("project.groupId" -> Option(pomModel.getGroupId).getOrElse(parentGroupId))
-    props += ("project.artifactId" -> pomModel.getArtifactId)
-
-    implicit val properties = props
-
-    var result = parent.map(_.managedDependencies).getOrElse(Map.empty) ++
-      Option(pomModel.getDependencyManagement)
-        .map(_.getDependencies.map(resolve).map(dep => dep.getManagementKey -> dep).toMap)
-        .getOrElse(Map.empty)
-
-    val imports = result.values.toList.filter(dep => dep.getScope == "import" && dep.getType == "pom")
-    imports foreach { dep =>
-      val artifact = MavenUtil.resolveArtifact(
-        new DefaultArtifact(s"${dep.getGroupId}:${dep.getArtifactId}:pom:${dep.getVersion}")
-      )
-      if (artifact.getFile.exists()) {
-        val model = MavenModel(artifact.getFile, new MavenXpp3Reader().read(new FileReader(artifact.getFile)))
-        
-        // the dependencies declared in imported pom has lower priority than dependencies in current pom's dependency management
-        result = model.managedDependencies ++ result
+    if(cache_managedDependenciesMap.isEmpty || modelChanged){
+      //poms may have below variables
+      var props = this.properties
+      val parentGroupId = parent match {
+        case Some(model) => model.pomModel.getGroupId
+        case _ => ""
       }
+
+      val parentVersion = parent match {
+        case Some(model) => model.pomModel.getVersion
+        case _ => ""
+      }
+
+      props += ("project.version" -> Option(pomModel.getVersion).getOrElse(parentVersion))
+      props += ("project.groupId" -> Option(pomModel.getGroupId).getOrElse(parentGroupId))
+      props += ("project.artifactId" -> pomModel.getArtifactId)
+
+      implicit val properties = props
+
+      var result = parent.map(_.managedDependencies).getOrElse(Map.empty) ++
+        Option(pomModel.getDependencyManagement)
+          .map(_.getDependencies.map(resolve).map(dep => dep.getManagementKey -> dep).toMap)
+          .getOrElse(Map.empty)
+
+      val imports = result.values.toList.filter(dep => dep.getScope == "import" && dep.getType == "pom")
+      imports foreach { dep =>
+        val artifact = MavenUtil.resolveArtifact(
+          new DefaultArtifact(s"${dep.getGroupId}:${dep.getArtifactId}:pom:${dep.getVersion}")
+        )
+        if (artifact.getFile.exists()) {
+          val model = MavenModel(artifact.getFile, new MavenXpp3Reader().read(new FileReader(artifact.getFile)))
+
+          // the dependencies declared in imported pom has lower priority than dependencies in current pom's dependency management
+          result = model.managedDependencies ++ result
+        }
+      }
+
+      cache_managedDependenciesMap = result
+      cacheModelDependencyInfo
+    }else{
+      println("hit for managedDependencies cache")
     }
 
-    result
+    cache_managedDependenciesMap
   }
 
 
@@ -166,6 +252,7 @@ case class MavenModel(pomFile: File, pomModel: Model) {
 }
 
 class MultiModuleMavenModelProvider extends IModelProvider[MultiModuleMavenModel, MavenProjectCtx] {
+
 
   private val CompilerArgumentsPattern = """(?s)<configuration.*?>(.*?)</configuration>""".r
 
@@ -230,17 +317,30 @@ class MultiModuleMavenModelProvider extends IModelProvider[MultiModuleMavenModel
       MavenModel(pomFile.getCanonicalFile, pomModel)
     }
 
-    createMavenModel(projectCtx.rootPomFile) match {
-      case Success(root) =>
-        val modules = root :: findModules(root)
-        val keys = modules.map(_.pomFile).toSet
-        val unprocessedParents = modules.map(_.localParent) collect {
-          case Some(m) => m
-        } filter {m =>
-          !keys.contains(m.pomFile)
-        }
-        MultiModuleMavenModel(projectCtx.rootPomFile, unprocessedParents ++ modules)
-      case Failure(e) => throw e
+    val existed = MultiModuleMavenModelProvider.CACHE.get(projectCtx.rootPomFile)
+    if (existed.isEmpty) {
+      val model = createMavenModel(projectCtx.rootPomFile) match {
+        case Success(root) =>
+          val modules = root :: findModules(root)
+          val keys = modules.map(_.pomFile).toSet
+          val unprocessedParents = modules.map(_.localParent) collect {
+            case Some(m) => m
+          } filter { m =>
+            !keys.contains(m.pomFile)
+          }
+          MultiModuleMavenModel(projectCtx.rootPomFile, unprocessedParents ++ modules)
+        case Failure(e) => throw e
+      }
+
+      MultiModuleMavenModelProvider.CACHE.put(projectCtx.rootPomFile, model)
+      model
+    }else{
+      existed.get
     }
   }
+}
+
+
+object MultiModuleMavenModelProvider {
+  val CACHE = collection.mutable.Map[File, MultiModuleMavenModel]()
 }
