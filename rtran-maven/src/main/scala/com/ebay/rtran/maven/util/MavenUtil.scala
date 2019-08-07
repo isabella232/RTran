@@ -95,7 +95,8 @@ object MavenUtil {
   private lazy val remoteSnapshotRepositories: List[RemoteRepository] =
     remoteRepositories.filter(_.getPolicy(true).isEnabled)
 
-  private[maven] lazy val localRepository = new File(System.getProperty("user.dir"), config.getString("local-repository"))
+  private[maven] lazy val localRepository = if (config.hasPath("local-repository-full-path")) new File(config.getString("local-repository-full-path")) else new File(System.getProperty("user.dir"), config.getString("local-repository"))
+  println(localRepository.getAbsolutePath)
 
   def repositorySystemSession: RepositorySystemSession = {
     val session = MavenRepositorySystemUtils.newSession
