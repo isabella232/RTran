@@ -36,8 +36,10 @@ import org.eclipse.aether.spi.connector.transport.TransporterFactory
 import org.eclipse.aether.transport.file.FileTransporterFactory
 import org.eclipse.aether.transport.http.HttpTransporterFactory
 import org.eclipse.aether.util.filter.ExclusionsDependencyFilter
+import org.eclipse.aether.util.graph.manager.DependencyManagerUtils
+import org.eclipse.aether.util.graph.transformer._
 import org.eclipse.aether.util.graph.visitor.{FilteringDependencyVisitor, TreeDependencyVisitor}
-import org.eclipse.aether.{RepositorySystem, RepositorySystemSession, repository => aether}
+import org.eclipse.aether.{DefaultRepositorySystemSession, RepositorySystem, RepositorySystemSession, repository => aether}
 
 import scala.collection.JavaConversions._
 import scala.io.Source
@@ -95,14 +97,24 @@ object MavenUtil {
   private lazy val remoteSnapshotRepositories: List[RemoteRepository] =
     remoteRepositories.filter(_.getPolicy(true).isEnabled)
 
-  private[maven] lazy val localRepository = if (config.hasPath("local-repository-full-path")) new File(config.getString("local-repository-full-path")) else new File(System.getProperty("user.dir"), config.getString("local-repository"))
-  println(localRepository.getAbsolutePath)
+  private[maven] lazy val localRepository = new File(System.getProperty("user.dir"), config.getString("local-repository"))
 
   def repositorySystemSession: RepositorySystemSession = {
     val session = MavenRepositorySystemUtils.newSession
     val localRepo = new LocalRepository(localRepository.getAbsolutePath)
     session.setLocalRepositoryManager(repositorySystem.newLocalRepositoryManager(session, localRepo))
     session
+  }
+
+
+
+  def getTransitiveDependenciesOfArtifacts(dependencies: util.List[maven.Dependency],
+                                managedDependencies: util.List[maven.Dependency] = List.empty[maven.Dependency],
+                                enableCache: Boolean = true): util.List[Artifact] = {
+    Try {
+      val deps = dependencies.map(mavenDependency2Artifact).toList
+      allDependenciesOfArtifacts(deps, managedDependencies.map(mavenDependency2AetherDependency).toList, new EmptyDependencyFilter)
+    } getOrElse util.Collections.emptyList[Artifact]
   }
 
   def getTransitiveDependencies(dependency: maven.Dependency,
@@ -155,25 +167,57 @@ object MavenUtil {
                       managedDependencies: util.List[Dependency] = List.empty[Dependency],
                       dependencyFilter: DependencyFilter = new EmptyDependencyFilter,
                       additionalRepositories: util.List[RemoteRepository] = List.empty[RemoteRepository]): util.List[Artifact] = {
-    val collectRequest = new CollectRequest(new Dependency(artifact, ""), remoteRepositories)
-    collectRequest.setManagedDependencies(managedDependencies)
+    allDependenciesOfArtifacts(List(artifact), managedDependencies, dependencyFilter, additionalRepositories)
 
-    val collectResult = Try {
-      repositorySystem.collectDependencies(repositorySystemSession, collectRequest)
-    } recover {
-      case e: DependencyCollectionException => e.getResult
-      case e => throw e
+  }
+
+  def allDependenciesOfArtifacts(artifacts: util.List[Artifact],
+                      managedDependencies: util.List[Dependency] = List.empty[Dependency],
+                      dependencyFilter: DependencyFilter = new EmptyDependencyFilter,
+                      additionalRepositories: util.List[RemoteRepository] = List.empty[RemoteRepository]): util.List[Artifact] = {
+
+    var cr = artifacts.length match {
+      case 1 =>
+        Some(new CollectRequest(new Dependency(artifacts.head, ""), remoteRepositories))
+
+      case x if x > 1 =>
+        val request = new CollectRequest
+        request.setRepositories(remoteRepositories)
+        //request.setRequestContext("project");
+        artifacts.foreach(a => request.addDependency(new Dependency(a, "")))
+        Some(request)
+      case _ => None
     }
 
-    (for {
-      result <- collectResult.toOption
-      root <- Option(result.getRoot)
-    } yield {
-      val rtranVisitor = new RtranDependencyVisitor
-      val visitor = new TreeDependencyVisitor(new FilteringDependencyVisitor(rtranVisitor, dependencyFilter))
-      root.accept(visitor)
-      rtranVisitor.artifacts
-    }).getOrElse(Collections.emptyList())
+    cr match {
+      case Some(collectRequest)=>
+        collectRequest.setManagedDependencies(managedDependencies)
+        val collectResult = Try {
+          val session = new DefaultRepositorySystemSession(repositorySystemSession);
+          val transformer = new ConflictResolver(new NearestVersionSelector(), new JavaScopeSelector(),
+            new SimpleOptionalitySelector(), new JavaScopeDeriver());
+          session.setDependencyGraphTransformer(transformer);
+          session.setConfigProperty(ConflictResolver.CONFIG_PROP_VERBOSE, true);
+          session.setConfigProperty(DependencyManagerUtils.CONFIG_PROP_VERBOSE, true);
+          repositorySystem.collectDependencies(session, collectRequest)
+        } recover {
+          case e: DependencyCollectionException => e.getResult
+          case e => throw e
+        }
+
+        (for {
+          result <- collectResult.toOption
+          root <- Option(result.getRoot)
+        } yield {
+          val rtranVisitor = new RtranDependencyVisitor
+          val visitor = new TreeDependencyVisitor(new FilteringDependencyVisitor(rtranVisitor, dependencyFilter))
+          root.accept(visitor)
+          rtranVisitor.artifacts
+        }).getOrElse(Collections.emptyList())
+
+      case _=>Collections.emptyList()
+
+    }
   }
 
   def resolveArtifact(artifact: Artifact,
