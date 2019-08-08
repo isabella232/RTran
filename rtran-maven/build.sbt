@@ -2,20 +2,13 @@ import Versions._
 
 val aetherVersion = "1.1.0"
 
-libraryDependencies ++= Seq(
-  "org.eclipse.aether" % "aether-api" % aetherVersion,
-  "org.eclipse.aether" % "aether-spi" % aetherVersion,
-  "org.eclipse.aether" % "aether-util" % aetherVersion,
-  "org.eclipse.aether" % "aether-impl" % aetherVersion,
-  "org.eclipse.aether" % "aether-connector-basic" % aetherVersion,
-  "org.eclipse.aether" % "aether-transport-wagon" % aetherVersion,
-  "org.eclipse.aether" % "aether-transport-classpath" % aetherVersion,
-  "org.eclipse.aether" % "aether-transport-file" % aetherVersion,
-  "org.eclipse.aether" % "aether-transport-http" % aetherVersion
-)
 
 libraryDependencies ++= Seq(
-  "org.apache.maven" % "maven-core" % "3.3.3",
+  "org.apache.maven" % "maven-core" % "3.6.1",
+  "org.apache.maven.resolver" % "maven-resolver" % "1.3.3",
+  "org.apache.maven.resolver" % "maven-resolver-connector-basic" % "1.3.3",
+  "org.apache.maven.resolver" % "maven-resolver-transport-file" % "1.3.3",
+  "org.apache.maven.resolver" % "maven-resolver-transport-http" % "1.3.3",
   "com.typesafe" % "config" % typesafeConfigVersion,
   "org.commonjava.maven" % "maven3-model-jdom-support" % "1.5",
   "commons-io" % "commons-io" % apacheCommonsIOVersion,
