@@ -81,23 +81,7 @@ case class MavenModel(pomFile: File, pomModel: Model) {
   }
 
   def managedDependencies: Map[String, Dependency] = {
-    //poms may have below variables
-    var props = this.properties
-    val parentGroupId = parent match {
-      case Some(model) => model.pomModel.getGroupId
-      case _ => ""
-    }
-
-    val parentVersion = parent match {
-      case Some(model) => model.pomModel.getVersion
-      case _ => ""
-    }
-
-    props += ("project.version" -> Option(pomModel.getVersion).getOrElse(parentVersion))
-    props += ("project.groupId" -> Option(pomModel.getGroupId).getOrElse(parentGroupId))
-    props += ("project.artifactId" -> pomModel.getArtifactId)
-
-    implicit val properties = props
+    implicit val properties = this.properties
 
     var result = parent.map(_.managedDependencies).getOrElse(Map.empty) ++
       Option(pomModel.getDependencyManagement)
@@ -154,6 +138,22 @@ case class MavenModel(pomFile: File, pomModel: Model) {
 
   implicit def properties: Map[String, String] = {
     var props = parent.map(_.properties).getOrElse(Map.empty) ++ pomModel.getProperties
+
+    //should have below properties as pom may have below variables
+    val parentGroupId = parent match {
+      case Some(model) => model.pomModel.getGroupId
+      case _ => ""
+    }
+
+    val parentVersion = parent match {
+      case Some(model) => model.pomModel.getVersion
+      case _ => ""
+    }
+
+    props += ("project.version" -> Option(pomModel.getVersion).getOrElse(parentVersion))
+    props += ("project.groupId" -> Option(pomModel.getGroupId).getOrElse(parentGroupId))
+    props += ("project.artifactId" -> pomModel.getArtifactId)
+
     //solve case like spring-framework.version=${spring.version} & spring.version=1.1.1
     val propsToSolveReference = props.filter((p) => (p._2.startsWith("${") && p._2.endsWith("}")))
     propsToSolveReference foreach { (p) =>
