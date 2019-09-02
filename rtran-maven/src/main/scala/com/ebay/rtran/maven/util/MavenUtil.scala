@@ -70,9 +70,9 @@ object MavenUtil {
       val key = entry.getKey
       val url = repositories.getString(entry.getKey)
       val (releasePolicy, snapshotPolicy) = if (url endsWith "snapshots") {
-        (new aether.RepositoryPolicy(false, "daily", ""), new aether.RepositoryPolicy(true, "always", ""))
+        (new aether.RepositoryPolicy(false, "never", ""), new aether.RepositoryPolicy(true, "always", ""))
       } else {
-        (new aether.RepositoryPolicy(true, "daily", ""), new aether.RepositoryPolicy(false, "always", ""))
+        (new aether.RepositoryPolicy(true, "never", ""), new aether.RepositoryPolicy(false, "always", ""))
       }
       if(key =="maven_central_mirror"){
         new RemoteRepository.Builder(key, DEFAULT, url)
