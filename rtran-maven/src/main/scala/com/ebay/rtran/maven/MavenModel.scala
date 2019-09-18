@@ -137,25 +137,26 @@ case class MavenModel(pomFile: File, pomModel: Model) {
   }
 
   implicit def properties: Map[String, String] = {
-    var props = parent.map(_.properties).getOrElse(Map.empty) ++ pomModel.getProperties
+    val modelParent = parent //avoid emthod call
+    var props = modelParent.map(_.properties).getOrElse(Map.empty) ++ pomModel.getProperties
 
     //should have below properties as pom may have below variables
-    val parentGroupId = parent match {
+    val parentGroupId = modelParent match {
       case Some(model) => model.pomModel.getGroupId
       case _ => ""
     }
 
-    val parentVersion = parent match {
+    val parentVersion = modelParent match {
       case Some(model) => model.pomModel.getVersion
       case _ => ""
     }
 
     props += ("project.version" -> Option(pomModel.getVersion).getOrElse(parentVersion))
     props += ("project.groupId" -> Option(pomModel.getGroupId).getOrElse(parentGroupId))
-    props += ("project.artifactId" -> pomModel.getArtifactId)
+    props += ("project.artifactId" -> Option(pomModel.getArtifactId).getOrElse(""))
 
     //solve case like spring-framework.version=${spring.version} & spring.version=1.1.1
-    val propsToSolveReference = props.filter((p) => (p._2.startsWith("${") && p._2.endsWith("}")))
+    val propsToSolveReference = props.filter((p) => (p._2 != null && p._2.startsWith("${") && p._2.endsWith("}")))
     propsToSolveReference foreach { (p) =>
       val value = StringUtils.substringBetween(p._2, "${", "}")
       props += (p._1 -> props.get(value).getOrElse(p._2))

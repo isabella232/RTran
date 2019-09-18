@@ -30,7 +30,7 @@ import org.eclipse.aether.connector.basic.BasicRepositoryConnectorFactory
 import org.eclipse.aether.graph._
 import org.eclipse.aether.impl.DefaultServiceLocator
 import org.eclipse.aether.repository.{LocalRepository, RemoteRepository}
-import org.eclipse.aether.resolution.{ArtifactRequest, DependencyResolutionException, VersionRangeRequest}
+import org.eclipse.aether.resolution.{ArtifactRequest, VersionRangeRequest}
 import org.eclipse.aether.spi.connector.RepositoryConnectorFactory
 import org.eclipse.aether.spi.connector.transport.TransporterFactory
 import org.eclipse.aether.transport.file.FileTransporterFactory
@@ -64,15 +64,20 @@ object MavenUtil {
     locator.getService(classOf[RepositorySystem])
   }
 
-  private lazy val remoteRepositories: List[RemoteRepository] = {
+  //use never to avoid pom downloading which is slow as maven downloads pom in sequence
+  private lazy val remoteRepositories_for_artifact_resolver = remoteRepositories("never", "always")
+
+  //should use a different policy "daily", otherwise no new version will be fecthed.
+  private lazy val remoteRepositories_for_latest_version_resolver = remoteRepositories("daily", "always")
+  private def remoteRepositories(policyRelease: String, policySnapshot: String): List[RemoteRepository] = {
     val repositories = config.getConfig("remote-repositories")
     repositories.entrySet map {entry =>
       val key = entry.getKey
       val url = repositories.getString(entry.getKey)
       val (releasePolicy, snapshotPolicy) = if (url endsWith "snapshots") {
-        (new aether.RepositoryPolicy(false, "never", ""), new aether.RepositoryPolicy(true, "always", ""))
+        (new aether.RepositoryPolicy(false, policyRelease, ""), new aether.RepositoryPolicy(true, policySnapshot, ""))
       } else {
-        (new aether.RepositoryPolicy(true, "never", ""), new aether.RepositoryPolicy(false, "always", ""))
+        (new aether.RepositoryPolicy(true, policyRelease, ""), new aether.RepositoryPolicy(false, policySnapshot, ""))
       }
       if(key =="maven_central_mirror"){
         new RemoteRepository.Builder(key, DEFAULT, url)
@@ -89,14 +94,10 @@ object MavenUtil {
     } toList
   }
 
-  private lazy val remoteReleaseRepositories: List[RemoteRepository] =
-    remoteRepositories.filter(_.getPolicy(false).isEnabled)
-
-  private lazy val remoteSnapshotRepositories: List[RemoteRepository] =
-    remoteRepositories.filter(_.getPolicy(true).isEnabled)
 
   private[maven] lazy val localRepository = if (config.hasPath("local-repository-full-path")) new File(config.getString("local-repository-full-path")) else new File(System.getProperty("user.dir"), config.getString("local-repository"))
   println(localRepository.getAbsolutePath)
+
 
   def repositorySystemSession: RepositorySystemSession = {
     val session = MavenRepositorySystemUtils.newSession
@@ -104,6 +105,7 @@ object MavenUtil {
     session.setLocalRepositoryManager(repositorySystem.newLocalRepositoryManager(session, localRepo))
     session
   }
+
 
   def getTransitiveDependencies(dependency: maven.Dependency,
                                 managedDependencies: util.List[maven.Dependency] = List.empty[maven.Dependency],
@@ -155,7 +157,7 @@ object MavenUtil {
                       managedDependencies: util.List[Dependency] = List.empty[Dependency],
                       dependencyFilter: DependencyFilter = new EmptyDependencyFilter,
                       additionalRepositories: util.List[RemoteRepository] = List.empty[RemoteRepository]): util.List[Artifact] = {
-    val collectRequest = new CollectRequest(new Dependency(artifact, ""), remoteRepositories)
+    val collectRequest = new CollectRequest(new Dependency(artifact, ""), remoteRepositories_for_artifact_resolver)
     collectRequest.setManagedDependencies(managedDependencies)
 
     val collectResult = Try {
@@ -182,7 +184,7 @@ object MavenUtil {
       artifact,
       (new RemoteRepository.Builder(
         "local", DEFAULT, s"file://${localRepository.getAbsolutePath}"
-      ).build :: remoteRepositories) ++ additionalRepositories,
+      ).build :: remoteRepositories_for_artifact_resolver) ++ additionalRepositories,
       ""
     )
     val artifactResult = repositorySystem.resolveArtifact(repositorySystemSession, artifactRequest)
@@ -193,6 +195,12 @@ object MavenUtil {
                             artifactId: String,
                             versionPrefix: String = "",
                             snapshot: Boolean = false): util.List[String] = {
+    val remoteReleaseRepositories =
+      remoteRepositories_for_latest_version_resolver.filter(_.getPolicy(false).isEnabled)
+
+    val remoteSnapshotRepositories =
+      remoteRepositories_for_latest_version_resolver.filter(_.getPolicy(true).isEnabled)
+
     val versionRange = if (Option(versionPrefix).isEmpty || versionPrefix.isEmpty) "[0,)" else s"[$versionPrefix.*]"
     val artifact = new DefaultArtifact(s"$groupId:$artifactId:$versionRange")
     val versionRangeRequest = new VersionRangeRequest(
