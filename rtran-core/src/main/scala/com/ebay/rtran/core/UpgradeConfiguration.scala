@@ -43,8 +43,8 @@ trait JsonRuleProducer extends RuleProducer with LazyLogging {self: UpgradeConfi
   lazy val ruleInstances = ruleConfigs map {
     case JsonRuleConfiguration(name, configOpt) =>
       logger.info("Creating instance for {} with config {}", name, configOpt)
-      RuleRegistry.findRuleDefinition(name) flatMap { case (ruleClass, configFactoryOpt) =>
-        val configFactory = (configFactoryOpt getOrElse DefaultJsonRuleConfigFactory)
+      RuleRegistry.findRuleDefinition(name) flatMap { case (ruleClass, rule) =>
+        val configFactory = (rule.configFactory getOrElse DefaultJsonRuleConfigFactory)
           .asInstanceOf[IRuleConfigFactory[JsonNode]]
         configOpt map { config =>
           Try(JsonConfigurableRuleFactory.createRuleWithConfig(ruleClass, configFactory, asJsonNode(config)))
