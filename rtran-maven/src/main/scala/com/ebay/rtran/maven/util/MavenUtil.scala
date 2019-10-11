@@ -68,7 +68,7 @@ object MavenUtil {
   private lazy val remoteRepositories_for_artifact_resolver = remoteRepositories("never", "always")
 
   //should use a different policy "daily", otherwise no new version will be fecthed.
-  private lazy val remoteRepositories_for_latest_version_resolver = remoteRepositories("daily", "always")
+  private lazy val remoteRepositories_for_latest_version_resolver = remoteRepositories("always", "always")
   private def remoteRepositories(policyRelease: String, policySnapshot: String): List[RemoteRepository] = {
     val repositories = config.getConfig("remote-repositories")
     repositories.entrySet map {entry =>
