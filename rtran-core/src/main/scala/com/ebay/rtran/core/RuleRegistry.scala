@@ -24,7 +24,7 @@ import scala.collection.JavaConversions._
 import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 
-case class Rule(name: String, additionalProperties: Map[String, String], configFactory: Option[IRuleConfigFactory[_]])
+case class Rule(name: String, var additionalProperties: Map[String, String], configFactory: Option[IRuleConfigFactory[_]])
 
 object RuleRegistry extends LazyLogging {
 

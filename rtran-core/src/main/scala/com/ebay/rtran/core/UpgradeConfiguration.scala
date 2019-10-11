@@ -21,6 +21,7 @@ import com.typesafe.scalalogging.LazyLogging
 import org.json4s.JsonAST.JValue
 import org.json4s.jackson.JsonMethods._
 import com.ebay.rtran.api.{IModel, IRule, IRuleConfigFactory}
+import org.json4s.DefaultFormats
 
 import scala.util.{Failure, Success, Try}
 
@@ -33,7 +34,7 @@ trait UpgradeConfiguration extends RuleProducer {
   val ruleConfigs: List[JsonRuleConfiguration]
 }
 
-case class JsonRuleConfiguration(name: String, config: Option[JValue] = None)
+case class JsonRuleConfiguration(name: String, metadata: Option[JValue] = None, config: Option[JValue] = None)
 
 case class JsonUpgradeConfiguration(ruleConfigs: List[JsonRuleConfiguration])
   extends UpgradeConfiguration with JsonRuleProducer
@@ -41,9 +42,15 @@ case class JsonUpgradeConfiguration(ruleConfigs: List[JsonRuleConfiguration])
 trait JsonRuleProducer extends RuleProducer with LazyLogging {self: UpgradeConfiguration =>
 
   lazy val ruleInstances = ruleConfigs map {
-    case JsonRuleConfiguration(name, configOpt) =>
+    case JsonRuleConfiguration(name, metadata, configOpt) =>
       logger.info("Creating instance for {} with config {}", name, configOpt)
+      implicit val formats = DefaultFormats
+
+      //copy settings from metadata to Rule Registry
       RuleRegistry.findRuleDefinition(name) flatMap { case (ruleClass, rule) =>
+        val properties = metadata.map(json => json.extract[Map[String, Any]])
+        properties.map(m => m.mapValues(_.toString)).map(m => rule.additionalProperties ++= m)
+
         val configFactory = (rule.configFactory getOrElse DefaultJsonRuleConfigFactory)
           .asInstanceOf[IRuleConfigFactory[JsonNode]]
         configOpt map { config =>
