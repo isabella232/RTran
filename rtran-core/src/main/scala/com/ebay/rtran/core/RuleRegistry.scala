@@ -16,11 +16,12 @@
 
 package com.ebay.rtran.core
 
+import com.ebay.rtran.api.{IModel, IRule, IRuleConfigFactory}
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
-import com.ebay.rtran.api.{IModel, IRule, IRuleConfig, IRuleConfigFactory}
 
 import scala.collection.JavaConversions._
+import scala.collection.mutable
 import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 
@@ -31,6 +32,11 @@ object RuleRegistry extends LazyLogging {
   val PATH_TO_RULES = "rtran.rules"
 
   private[this] lazy val ruleDefinitions = loadRuleDefinitions(UpgraderMeta.configs)
+  private[this] val metadataCache = new mutable.HashMap[IRule[_ <:IModel], Map[String, String]]
+
+  def findRuleMetadata(rule: IRule[_ <:IModel]) = metadataCache get rule
+
+  def saveRuleMetadata(rule: IRule[_ <:IModel], mm: Map[String, String]) = metadataCache put (rule, mm)
 
   def findRuleDefinition(name: String) = ruleDefinitions get name
 

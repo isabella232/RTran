@@ -24,7 +24,7 @@ import com.ebay.rtran.maven.util.MavenUtil
 import org.apache.commons.io.{FileUtils, IOUtils}
 import org.apache.commons.lang3.StringUtils
 import org.apache.maven.model.io.jdom.MavenJDOMWriter
-import org.apache.maven.model.io.xpp3.MavenXpp3Reader
+import org.apache.maven.model.io.xpp3.{MavenXpp3Reader, MavenXpp3Writer}
 import org.apache.maven.model.{Dependency, Model, Plugin}
 import org.eclipse.aether.artifact.DefaultArtifact
 import org.jdom2.input.SAXBuilder
@@ -151,7 +151,12 @@ case class MavenModel(pomFile: File, pomModel: Model) {
       case _ => ""
     }
 
-    props += ("project.version" -> Option(pomModel.getVersion).getOrElse(parentVersion))
+    val projectV = Option(pomModel.getVersion).getOrElse(parentVersion)
+    if (!Option(projectV).isEmpty) {
+      //if null, use parent's project.version, dont overwrite
+      props += ("project.version" -> projectV)
+    }
+
     props += ("project.groupId" -> Option(pomModel.getGroupId).getOrElse(parentGroupId))
     props += ("project.artifactId" -> Option(pomModel.getArtifactId).getOrElse(""))
 
@@ -194,6 +199,7 @@ class MultiModuleMavenModelProvider extends IModelProvider[MultiModuleMavenModel
       val format = Format.getRawFormat.setEncoding(encoding).setTextMode(TextMode.PRESERVE).setLineSeparator(separator)
       val outWriter = new StringWriter()
       new MavenJDOMWriter().setExpandEmptyElements(true).write(module.pomModel, doc, outWriter, format)
+      //new MavenXpp3Writer().write(new FileWriter("aa"), module.pomModel)
 
       val updatedContent = outWriter.toString
 

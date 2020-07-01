@@ -49,14 +49,13 @@ trait JsonRuleProducer extends RuleProducer with LazyLogging {self: UpgradeConfi
       //copy settings from metadata to Rule Registry
       RuleRegistry.findRuleDefinition(name) flatMap { case (ruleClass, rule) =>
         val properties = metadata.map(json => json.extract[Map[String, Any]])
-        properties.map(m => m.mapValues(_.toString)).map(m => rule.additionalProperties ++= m)
-
         val configFactory = (rule.configFactory getOrElse DefaultJsonRuleConfigFactory)
           .asInstanceOf[IRuleConfigFactory[JsonNode]]
         configOpt map { config =>
           Try(JsonConfigurableRuleFactory.createRuleWithConfig(ruleClass, configFactory, asJsonNode(config)))
         } getOrElse Try(JsonConfigurableRuleFactory.createRule(ruleClass)) match {
           case Success(instance) =>
+            properties.map(m => m.mapValues(_.toString)).map(m => RuleRegistry.saveRuleMetadata(instance, m))
             Some(instance)
           case Failure(e) =>
             logger.warn(e.getMessage)
