@@ -59,8 +59,12 @@ object MavenModelUtil {
           ExtractPattern.findAllMatchIn(s) foreach { mat =>
             replaced = s.replace(mat.matched, properties.get(mat.group(1)).getOrElse(""))
           }
-          replaced
-
+          if (ExtractPattern.findFirstIn(s).isDefined) {
+            //variable refer to another variable.
+            replaceVariable(replaced, properties)
+          } else {
+            replaced
+          }
         case _ => ""
       }
     }
