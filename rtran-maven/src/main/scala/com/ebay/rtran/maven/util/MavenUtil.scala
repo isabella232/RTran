@@ -30,7 +30,7 @@ import org.eclipse.aether.connector.basic.BasicRepositoryConnectorFactory
 import org.eclipse.aether.graph._
 import org.eclipse.aether.impl.DefaultServiceLocator
 import org.eclipse.aether.repository.{LocalRepository, RemoteRepository}
-import org.eclipse.aether.resolution.{ArtifactRequest, VersionRangeRequest}
+import org.eclipse.aether.resolution.{ArtifactRequest, VersionRangeRequest, VersionRequest}
 import org.eclipse.aether.spi.connector.RepositoryConnectorFactory
 import org.eclipse.aether.spi.connector.transport.TransporterFactory
 import org.eclipse.aether.transport.file.FileTransporterFactory
@@ -65,7 +65,7 @@ object MavenUtil {
   }
 
   //use never to avoid pom downloading which is slow as maven downloads pom in sequence
-  private lazy val remoteRepositories_for_artifact_resolver = remoteRepositories("never", "always")
+  private lazy val remoteRepositories_for_artifact_resolver = remoteRepositories("never", "daily")
 
   //should use a different policy "daily", otherwise no new version will be fecthed.
   private lazy val remoteRepositories_for_latest_version_resolver = remoteRepositories("always", "always")
@@ -190,6 +190,20 @@ object MavenUtil {
     val artifactResult = repositorySystem.resolveArtifact(repositorySystemSession, artifactRequest)
     artifactResult.getArtifact
   }
+
+  def resolveVersion(artifact: Artifact,
+                      additionalRepositories: util.List[RemoteRepository] = List.empty[RemoteRepository]): String = {
+    val versionRequest = new VersionRequest(
+      artifact,
+      (new RemoteRepository.Builder(
+        "local", DEFAULT, s"file://${localRepository.getAbsolutePath}"
+      ).build :: remoteRepositories_for_artifact_resolver) ++ additionalRepositories,
+      ""
+    )
+    val artifactResult = repositorySystem.resolveVersion(repositorySystemSession, versionRequest)
+    artifactResult.getVersion
+  }
+
 
   def findAvailableVersions(groupId: String,
                             artifactId: String,
