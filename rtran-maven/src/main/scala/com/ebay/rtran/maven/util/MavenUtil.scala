@@ -109,11 +109,15 @@ object MavenUtil {
 
   def getTransitiveDependencies(dependency: maven.Dependency,
                                 managedDependencies: util.List[maven.Dependency] = List.empty[maven.Dependency],
-                                enableCache: Boolean = true): util.List[Artifact] = {
+                                enableCache: Boolean = true, filterExclusions: Boolean = true): util.List[Artifact] = {
 
-    def filterCachedResults(artifacts: util.List[Artifact]): util.List[Artifact] ={
-      val excls = dependency.getExclusions.map(e => s"${e.getGroupId}:${e.getArtifactId}").toSet
-      artifacts.filterNot(a => excls.contains(s"${a.getGroupId}:${a.getArtifactId}"))
+    def filterCachedResults(artifacts: util.List[Artifact]): util.List[Artifact] = {
+      filterExclusions match {
+        case true =>
+          val excls = dependency.getExclusions.map(e => s"${e.getGroupId}:${e.getArtifactId}").toSet
+          artifacts.filterNot(a => excls.contains(s"${a.getGroupId}:${a.getArtifactId}"))
+        case false => artifacts
+      }
     }
 
     if (enableCache && !dependency.getVersion.contains("SNAPSHOT")) {
